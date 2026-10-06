@@ -103,9 +103,10 @@ The same webcam stream is shared between both player previews. Point your index
 finger at a board square; the gold cursor shows where it is pointing. Pinch to
 grab/select, move to a highlighted square, then release to make the move.
 Camera access requires HTTPS outside localhost. The browser game and its
-static images, sounds, and hand-tracking model are configured as separate
-Vercel services. Public paths `/models/*`, `/png/*`, and `/sounds/*` route to
-the static assets service; all other paths route to the browser app.
+backgrounds, images, sounds, and hand-tracking model are configured as
+separate Vercel services. Public paths `/backgrounds/*`, `/models/*`, `/png/*`,
+and `/sounds/*` route to the static assets service; all other paths route to
+the browser app.
 
 Run the browser game tests and build with:
 

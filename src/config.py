@@ -5,6 +5,7 @@ from src.game_rules import BOARD_SIZE
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 ASSET_DIR = PROJECT_ROOT / "assets" / "png"
+BACKGROUND_ASSET_DIR = PROJECT_ROOT / "assets" / "backgrounds"
 SOUND_ASSET_DIR = PROJECT_ROOT / "assets" / "sounds"
 TIGER_SOUND_PATH = SOUND_ASSET_DIR / "tiger-roar.mp3"
 COW_SOUND_PATH = SOUND_ASSET_DIR / "cow-moo.mp3"

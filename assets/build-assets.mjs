@@ -6,6 +6,6 @@ const root = dirname(fileURLToPath(import.meta.url));
 const output = join(root, "dist");
 mkdirSync(output, { recursive: true });
 
-for (const directory of ["models", "png", "sounds"]) {
+for (const directory of ["backgrounds", "models", "png", "sounds"]) {
   cpSync(join(root, directory), join(output, directory), { recursive: true });
 }

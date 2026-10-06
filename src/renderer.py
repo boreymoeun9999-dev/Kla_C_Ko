@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from pathlib import Path
 
 import cv2
 import pygame
@@ -8,6 +9,7 @@ from cv2.typing import MatLike
 
 from src.config import (
     ASSET_DIR,
+    BACKGROUND_ASSET_DIR,
     BOARD_LEFT,
     BOARD_PIXELS,
     BOARD_TOP,
@@ -38,6 +40,14 @@ class Renderer:
         self.congratulations_font = pygame.font.Font(None, 52)
         self.body_font = pygame.font.Font(None, 25)
         self.small_font = pygame.font.Font(None, 21)
+        self.backgrounds = {
+            "start": self._load_soft_background(
+                BACKGROUND_ASSET_DIR / "start-angkor.png", (255, 248, 226, 92)
+            ),
+            "game": self._load_soft_background(
+                BACKGROUND_ASSET_DIR / "game-angkor.png", (221, 234, 207, 105)
+            ),
+        }
         self.background_details = pygame.Surface(self.screen.get_size(), pygame.SRCALPHA)
         pygame.draw.circle(self.background_details, SUN_GLOW, (84, 96), 44)
         self._draw_pawprint((318, 350))
@@ -86,6 +96,21 @@ class Renderer:
             "cow": pygame.Rect(WINDOW_WIDTH - 244, 246, 220, 165),
         }
 
+    def _load_soft_background(
+        self,
+        path: Path,
+        tint: tuple[int, int, int, int],
+    ) -> pygame.Surface:
+        image = pygame.image.load(path).convert()
+        size = self.screen.get_size()
+        reduced_size = (max(1, size[0] // 16), max(1, size[1] // 16))
+        image = pygame.transform.smoothscale(image, reduced_size)
+        image = pygame.transform.smoothscale(image, size)
+        overlay = pygame.Surface(size, pygame.SRCALPHA)
+        overlay.fill(tint)
+        image.blit(overlay, (0, 0))
+        return image
+
     def cell_at(self, position: tuple[int, int]) -> int | None:
         if not self.board_rect.collidepoint(position):
             return None
@@ -101,7 +126,7 @@ class Renderer:
         camera_messages: Mapping[str, str | None],
         camera_indices: Mapping[str, int | None],
     ) -> None:
-        self.screen.fill(BACKGROUND)
+        self.screen.blit(self.backgrounds["game"], (0, 0))
         self.screen.blit(self.background_details, (0, 0))
         self._draw_header(state)
         self._draw_music_button()
@@ -130,13 +155,11 @@ class Renderer:
         self,
         cursor: tuple[int, int] | None = None,
     ) -> None:
-        self.screen.fill(BACKGROUND)
+        self.screen.blit(self.backgrounds["start"], (0, 0))
         self.screen.blit(self.background_details, (0, 0))
 
         panel = pygame.Rect(0, 0, 1040, 600)
         panel.center = self.screen.get_rect().center
-        pygame.draw.rect(self.screen, (255, 255, 255), panel, border_radius=30)
-        pygame.draw.rect(self.screen, (246, 190, 67), panel, width=5, border_radius=30)
 
         title = self.cover_title_font.render("TIGER vs COW", True, NAVY)
         self.screen.blit(title, title.get_rect(center=(panel.centerx, panel.top + 93)))
