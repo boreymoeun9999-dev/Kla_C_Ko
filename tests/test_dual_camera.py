@@ -10,12 +10,104 @@ import pygame
 
 import src.main as game
 from src.camera import open_player_cameras
+from src.config import BOARD_LEFT, BOARD_TOP, CELL_SIZE
 from src.gesture_recognizer import GestureRecognizer
 from src.hand_tracker import HandObservation
 from src.renderer import Renderer
 
 
 class DualCameraTests(unittest.TestCase):
+    def test_can_type_both_player_names_from_keyboard_before_starting(self) -> None:
+        names_seen_in_game = []
+        original_draw = Renderer.draw
+
+        def record_draw(renderer, state, cursor, frames, messages, indices):
+            names_seen_in_game.append(dict(renderer.player_names))
+            original_draw(renderer, state, cursor, frames, messages, indices)
+
+        pygame.init()
+        events = [
+            [
+                pygame.event.Event(pygame.KEYDOWN, key=pygame.K_a, unicode="A"),
+                pygame.event.Event(pygame.KEYDOWN, key=pygame.K_r, unicode="r"),
+                pygame.event.Event(pygame.KEYDOWN, key=pygame.K_i, unicode="i"),
+                pygame.event.Event(pygame.KEYDOWN, key=pygame.K_TAB, unicode="\t"),
+                pygame.event.Event(pygame.KEYDOWN, key=pygame.K_m, unicode="M"),
+                pygame.event.Event(pygame.KEYDOWN, key=pygame.K_e, unicode="e"),
+                pygame.event.Event(pygame.KEYDOWN, key=pygame.K_i, unicode="i"),
+                pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN, unicode="\r"),
+                pygame.event.Event(
+                    pygame.MOUSEBUTTONDOWN, button=1, pos=(680, 566)
+                ),
+            ],
+            [pygame.event.Event(pygame.QUIT)],
+        ]
+        with (
+            patch.object(
+                game,
+                "open_player_cameras",
+                return_value=(
+                    {"tiger": None, "cow": None},
+                    {"tiger": None, "cow": None},
+                ),
+            ),
+            patch.object(pygame.event, "get", side_effect=events),
+            patch.object(Renderer, "draw", record_draw),
+        ):
+            game.main()
+
+        self.assertEqual(
+            names_seen_in_game[0],
+            {"tiger": "Ari", "cow": "Mei"},
+        )
+
+    def test_back_to_start_resets_game_and_returns_to_start_screen(self) -> None:
+        start_screens = []
+        game_states = []
+        original_draw_start_screen = Renderer.draw_start_screen
+        original_draw = Renderer.draw
+
+        def record_start_screen(renderer, cursor=None):
+            start_screens.append(dict(renderer.player_names))
+            original_draw_start_screen(renderer, cursor)
+
+        def record_draw(renderer, state, cursor, frames, messages, indices):
+            game_states.append((state.cows_placed, state.current_turn))
+            original_draw(renderer, state, cursor, frames, messages, indices)
+
+        pygame.init()
+        events = [
+            [pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=(680, 566))],
+            [
+                pygame.event.Event(
+                    pygame.MOUSEBUTTONDOWN,
+                    button=1,
+                    pos=(BOARD_LEFT + CELL_SIZE + CELL_SIZE // 2,
+                         BOARD_TOP + CELL_SIZE + CELL_SIZE // 2),
+                )
+            ],
+            [pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=(1255, 717))],
+            [pygame.event.Event(pygame.QUIT)],
+        ]
+        with (
+            patch.object(
+                game,
+                "open_player_cameras",
+                return_value=(
+                    {"tiger": None, "cow": None},
+                    {"tiger": None, "cow": None},
+                ),
+            ),
+            patch.object(pygame.event, "get", side_effect=events),
+            patch.object(Renderer, "draw_start_screen", record_start_screen),
+            patch.object(Renderer, "draw", record_draw),
+        ):
+            game.main()
+
+        self.assertEqual(len(start_screens), 2)
+        self.assertIn((1, "tiger"), game_states)
+        self.assertIn((0, "cow"), game_states)
+
     def test_camera_pinch_and_release_starts_game_over_start_button(self) -> None:
         class CameraStub:
             device_index = 0

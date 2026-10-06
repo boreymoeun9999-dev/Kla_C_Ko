@@ -145,7 +145,7 @@ class GameRulesTests(unittest.TestCase):
         self.assertEqual(state.winner, "cow")
         self.assertTrue(state.is_over)
 
-    def test_all_cows_placed_without_all_being_eaten_does_not_make_tiger_win(self) -> None:
+    def test_cow_wins_when_tigers_are_trapped_even_if_cows_cannot_move(self) -> None:
         state = GameState()
         state.board = ["cow"] * BOARD_CELLS
         for index in STARTING_TIGER_CELLS:
@@ -156,7 +156,7 @@ class GameRulesTests(unittest.TestCase):
         self.assertTrue(state.place(5))
         self.assertEqual(state.cows_placed, TOTAL_COWS)
         self.assertNotEqual(state.winner, "tiger")
-        self.assertEqual(state.winner, "draw")
+        self.assertEqual(state.winner, "cow")
         self.assertIsNone(state.current_turn)
         self.assertTrue(state.is_over)
 
@@ -200,6 +200,24 @@ class GameRulesTests(unittest.TestCase):
         self.assertTrue(state.move_tiger(7))
         self.assertEqual(state.cows_captured, TOTAL_COWS)
         self.assertEqual(state.winner, "tiger")
+        self.assertTrue(state.is_over)
+
+    def test_tiger_wins_when_last_cow_has_no_legal_move(self) -> None:
+        state = GameState()
+        state.board = [None] * BOARD_CELLS
+        for index in (2, 4, 8, 14):
+            state.board[index] = "tiger"
+        state.board[0] = "cow"
+        state.cows_placed = TOTAL_COWS
+        state.cows_captured = TOTAL_COWS - 1
+        state.current_turn = "tiger"
+
+        self.assertTrue(state.select_tiger(2))
+        self.assertTrue(state.move_tiger(1))
+        self.assertEqual(legal_cow_moves(state.board, 0), ())
+
+        self.assertEqual(state.winner, "tiger")
+        self.assertIsNone(state.current_turn)
         self.assertTrue(state.is_over)
 
     def test_reset_restores_game_counts_and_four_corner_tigers(self) -> None:

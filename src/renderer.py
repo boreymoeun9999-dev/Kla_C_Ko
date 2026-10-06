@@ -14,6 +14,7 @@ from src.config import (
     BOARD_PIXELS,
     BOARD_TOP,
     CELL_SIZE,
+    WINDOW_HEIGHT,
     WINDOW_WIDTH,
 )
 from src.game_rules import BOARD_SIZE, legal_cow_moves, legal_tiger_moves
@@ -24,8 +25,12 @@ BACKGROUND = (221, 234, 207)
 SUN_GLOW = (247, 211, 135, 105)
 TRACK_COLOR = (106, 139, 82, 34)
 NAVY = (35, 51, 74)
-MUTED = (105, 119, 139)
+MUTED = (64, 79, 101)
 ACCENT = (61, 133, 205)
+TIGER_COLOR = (225, 125, 43)
+TIGER_PALE = (255, 232, 202)
+COW_COLOR = (57, 151, 125)
+COW_PALE = (219, 243, 231)
 WHITE = (255, 255, 255)
 CELL_LIGHT = (250, 251, 253)
 CELL_DARK = (231, 236, 243)
@@ -37,6 +42,8 @@ class Renderer:
         self.title_font = pygame.font.Font(None, 42)
         self.cover_title_font = pygame.font.Font(None, 82)
         self.cover_subtitle_font = pygame.font.Font(None, 32)
+        self.versus_font = pygame.font.Font(None, 68)
+        self.versus_font.set_bold(True)
         self.congratulations_font = pygame.font.Font(None, 52)
         self.body_font = pygame.font.Font(None, 25)
         self.small_font = pygame.font.Font(None, 21)
@@ -69,8 +76,22 @@ class Renderer:
         self.images["close"] = pygame.transform.smoothscale(self.images["close"], (54, 54))
         self.restart_rect = pygame.Rect(WINDOW_WIDTH - 124, 19, 54, 54)
         self.close_rect = pygame.Rect(WINDOW_WIDTH - 58, 19, 54, 54)
+        self.home_rect = pygame.Rect(WINDOW_WIDTH - 190, WINDOW_HEIGHT - 66, 170, 46)
         self.start_button_rect = pygame.Rect(0, 0, 300, 76)
         self.start_button_rect.center = (WINDOW_WIDTH // 2, 566)
+        self.name_field_rects = {
+            "tiger": pygame.Rect(0, 0, 270, 42),
+            "cow": pygame.Rect(0, 0, 270, 42),
+        }
+        panel = pygame.Rect(0, 0, 1040, 600)
+        panel.center = self.screen.get_rect().center
+        for player, offset in (("tiger", -250), ("cow", 250)):
+            self.name_field_rects[player].center = (
+                panel.centerx + offset,
+                panel.top + 370,
+            )
+        self.player_name_inputs = {"tiger": "", "cow": ""}
+        self.active_name_field: str | None = "tiger"
         self.music_rect = pygame.Rect(WINDOW_WIDTH - 364, 24, 150, 40)
         self.music_label = "Choose song"
         self.music_toggle_rect = pygame.Rect(WINDOW_WIDTH - 196, 24, 68, 40)
@@ -103,7 +124,7 @@ class Renderer:
     ) -> pygame.Surface:
         image = pygame.image.load(path).convert()
         size = self.screen.get_size()
-        reduced_size = (max(1, size[0] // 16), max(1, size[1] // 16))
+        reduced_size = (max(1, size[0] // 8), max(1, size[1] // 8))
         image = pygame.transform.smoothscale(image, reduced_size)
         image = pygame.transform.smoothscale(image, size)
         overlay = pygame.Surface(size, pygame.SRCALPHA)
@@ -117,6 +138,47 @@ class Renderer:
         col = (position[0] - BOARD_LEFT) // CELL_SIZE
         row = (position[1] - BOARD_TOP) // CELL_SIZE
         return row * BOARD_SIZE + col
+
+    @property
+    def player_names(self) -> dict[str, str]:
+        return {
+            player: self.player_name_inputs[player].strip() or f"{player.title()} Player"
+            for player in ("tiger", "cow")
+        }
+
+    def focus_name_field(self, position: tuple[int, int]) -> bool:
+        for player, rect in self.name_field_rects.items():
+            if rect.collidepoint(position):
+                self.active_name_field = player
+                return True
+        self.active_name_field = None
+        return False
+
+    def handle_name_input(
+        self,
+        event: pygame.event.Event,
+        allow_key_text: bool = True,
+    ) -> None:
+        player = self.active_name_field
+        if player is None:
+            return
+        if event.type == pygame.TEXTINPUT:
+            name = self.player_name_inputs[player]
+            self.player_name_inputs[player] = (
+                name + "".join(character for character in event.text if character.isprintable())
+            )[:18]
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_BACKSPACE:
+                self.player_name_inputs[player] = self.player_name_inputs[player][:-1]
+            elif event.key == pygame.K_TAB:
+                self.active_name_field = "cow" if player == "tiger" else "tiger"
+            elif event.key == pygame.K_RETURN:
+                self.active_name_field = None
+            elif allow_key_text:
+                text = getattr(event, "unicode", "")
+                if text and text.isprintable():
+                    name = self.player_name_inputs[player]
+                    self.player_name_inputs[player] = (name + text)[:18]
 
     def draw(
         self,
@@ -174,19 +236,27 @@ class Renderer:
         character_size = (156, 156)
         tiger = pygame.transform.smoothscale(self.images["tiger"], character_size)
         cow = pygame.transform.smoothscale(self.images["cow"], character_size)
-        self.screen.blit(tiger, tiger.get_rect(center=(panel.centerx - 250, panel.top + 310)))
-        self.screen.blit(cow, cow.get_rect(center=(panel.centerx + 250, panel.top + 310)))
-        versus = self.cover_subtitle_font.render("VS", True, ACCENT)
-        self.screen.blit(versus, versus.get_rect(center=(panel.centerx, panel.top + 310)))
+        for player, offset, color, pale in (
+            ("tiger", -250, TIGER_COLOR, TIGER_PALE),
+            ("cow", 250, COW_COLOR, COW_PALE),
+        ):
+            center = (panel.centerx + offset, panel.top + 258)
+            pygame.draw.circle(self.screen, pale, center, 100)
+            pygame.draw.circle(self.screen, color, center, 100, width=5)
+            portrait = tiger if player == "tiger" else cow
+            self.screen.blit(portrait, portrait.get_rect(center=center))
+
+        self._draw_name_fields()
+        self._draw_versus_badge((panel.centerx, panel.top + 258))
 
         instructions = self.body_font.render(
-            "4 Tigers vs 12 Cows - play with two webcams or the mouse",
+            "Click a name box and type. Press Tab to switch between players.",
             True,
             MUTED,
         )
         self.screen.blit(
             instructions,
-            instructions.get_rect(center=(panel.centerx, panel.top + 432)),
+            instructions.get_rect(center=(panel.centerx, panel.top + 414)),
         )
 
         pygame.draw.rect(
@@ -201,7 +271,7 @@ class Renderer:
             start_label.get_rect(center=self.start_button_rect.center),
         )
         hint = self.small_font.render(
-            "Pinch and release on the button, or press Enter or Space",
+            "Press Enter or click Start Game when both names are ready.",
             True,
             MUTED,
         )
@@ -212,6 +282,51 @@ class Renderer:
         if cursor is not None:
             pygame.draw.circle(self.screen, ACCENT, cursor, 23, 3)
             pygame.draw.circle(self.screen, WHITE, cursor, 7)
+
+    def _draw_versus_badge(self, center: tuple[int, int]) -> None:
+        badge = pygame.Rect(0, 0, 112, 112)
+        badge.center = center
+        pygame.draw.circle(
+            self.screen,
+            (174, 184, 194),
+            (center[0] + 4, center[1] + 6),
+            57,
+        )
+        pygame.draw.circle(self.screen, NAVY, center, 56)
+        pygame.draw.circle(self.screen, (255, 248, 226), center, 50)
+        pygame.draw.arc(self.screen, TIGER_COLOR, badge, 0.75, 2.45, width=7)
+        pygame.draw.arc(self.screen, COW_COLOR, badge, 3.9, 5.6, width=7)
+
+        shadow = self.versus_font.render("VS", True, (181, 190, 199))
+        self.screen.blit(shadow, shadow.get_rect(center=(center[0] + 2, center[1] + 3)))
+        label = self.versus_font.render("VS", True, NAVY)
+        self.screen.blit(label, label.get_rect(center=center))
+
+    def _draw_name_fields(self) -> None:
+        for player, rect in self.name_field_rects.items():
+            color, pale = (
+                (TIGER_COLOR, TIGER_PALE)
+                if player == "tiger"
+                else (COW_COLOR, COW_PALE)
+            )
+            pygame.draw.rect(self.screen, pale, rect, border_radius=12)
+            pygame.draw.rect(
+                self.screen,
+                color if self.active_name_field == player else NAVY,
+                rect,
+                width=3 if self.active_name_field == player else 2,
+                border_radius=12,
+            )
+            value = self.player_name_inputs[player]
+            if value:
+                label = value + ("|" if self.active_name_field == player else "")
+                label_color = NAVY
+            else:
+                label = f"Enter {player} player name"
+                label_color = MUTED
+            label = self._fit_text(label, self.small_font, rect.width - 24)
+            text = self.small_font.render(label, True, label_color)
+            self.screen.blit(text, text.get_rect(center=rect.center))
 
     def _draw_music_button(self) -> None:
         pygame.draw.rect(self.screen, (255, 248, 226), self.music_rect, border_radius=10)
@@ -346,8 +461,14 @@ class Renderer:
             heading,
             heading.get_rect(center=(panel.centerx, panel.top + 177)),
         )
-        result_text = "Neither side can move." if winner == "draw" else f"{winner.title()} wins!"
-        result = self.body_font.render(result_text, True, ACCENT)
+        winner_name = self.player_names.get(winner, winner.title())
+        result_text = (
+            "Neither side can move."
+            if winner == "draw"
+            else f"{winner_name} wins!"
+        )
+        winner_color = COW_COLOR if winner == "cow" else TIGER_COLOR
+        result = self.body_font.render(result_text, True, winner_color)
         self.screen.blit(
             result,
             result.get_rect(center=(panel.centerx, panel.top + 225)),
@@ -366,25 +487,33 @@ class Renderer:
         subtitle = self.small_font.render("4 Tigers vs 12 Cows", True, MUTED)
         self.screen.blit(subtitle, (BOARD_LEFT + 2, 79))
         if state.winner == "tiger":
-            status = (
-                f"Tiger wins - ate all {TIGER_WIN_CAPTURES} Cows!"
-            )
-            status_color = NAVY
+            if state.cows_captured >= TIGER_WIN_CAPTURES:
+                reason = f"ate all {TIGER_WIN_CAPTURES} Cows"
+            else:
+                reason = "the last Cow cannot move"
+            status = f"{self.player_names['tiger']} wins - {reason}!"
+            status_color = TIGER_COLOR
         elif state.winner == "cow":
-            status = "Cow wins - all Tigers trapped!"
-            status_color = NAVY
+            status = f"{self.player_names['cow']} wins - all Tigers trapped!"
+            status_color = COW_COLOR
         elif state.winner == "draw":
             status = "Draw - neither side can move!"
             status_color = NAVY
         elif state.current_turn is not None:
             player = state.current_turn
             hand = "RIGHT" if player == "tiger" else "LEFT"
-            status = f"{player.upper()}'S TURN - USE {hand} HAND"
-            status_color = ACCENT if player == "cow" else (198, 116, 42)
+            status = f"{self.player_names[player].upper()}'S TURN - USE {hand} HAND"
+            status_color = COW_COLOR if player == "cow" else TIGER_COLOR
         else:
             status = "Game over"
             status_color = NAVY
-        status_surface = self.body_font.render(status, True, status_color)
+        status_font = (
+            self.body_font
+            if self.body_font.size(status)[0] <= self.board_rect.width - 24
+            else self.small_font
+        )
+        status = self._fit_text(status, status_font, self.board_rect.width - 24)
+        status_surface = status_font.render(status, True, status_color)
         status_position = status_surface.get_rect(center=(self.board_rect.centerx, 125))
         if state.current_turn is not None:
             banner = status_position.inflate(24, 12)
@@ -438,7 +567,7 @@ class Renderer:
                 ):
                     pygame.draw.rect(
                         self.screen,
-                        ACCENT if index == state.selected_tiger else MUTED,
+                        TIGER_COLOR if index == state.selected_tiger else MUTED,
                         cell,
                         width=4 if index == state.selected_tiger else 2,
                         border_radius=8,
@@ -451,7 +580,7 @@ class Renderer:
                 ):
                     pygame.draw.rect(
                         self.screen,
-                        ACCENT if index == state.selected_cow else MUTED,
+                        COW_COLOR if index == state.selected_cow else MUTED,
                         cell,
                         width=4 if index == state.selected_cow else 2,
                         border_radius=8,
@@ -490,7 +619,7 @@ class Renderer:
         panels = (
             (
                 "tiger",
-                "TIGER (LEFT CAMERA)",
+                f"TIGER: {self.player_names['tiger']}",
                 (
                     "Use RIGHT hand only.",
                     "Pinch, hold, move, then release.",
@@ -500,7 +629,7 @@ class Renderer:
             ),
             (
                 "cow",
-                "COW (RIGHT CAMERA)",
+                f"COW: {self.player_names['cow']}",
                 (
                     "Use LEFT hand only.",
                     *cow_action_instructions,
@@ -513,7 +642,9 @@ class Renderer:
         )
         for player, label, instructions in panels:
             preview = self.camera_rects[player]
-            self._text(label, preview.left, 196, self.body_font, NAVY)
+            player_color = TIGER_COLOR if player == "tiger" else COW_COLOR
+            label = self._fit_text(label, self.small_font, preview.width)
+            self._text(label, preview.left, 196, self.small_font, player_color)
             device_index = camera_indices[player]
             camera_name = (
                 f"Camera {device_index}"
@@ -534,6 +665,13 @@ class Renderer:
                 self.screen.blit(surface, preview)
             else:
                 self._text("No camera feed", preview.left + 42, 317, self.small_font, MUTED)
+            pygame.draw.rect(
+                self.screen,
+                player_color,
+                preview,
+                width=3,
+                border_radius=8,
+            )
             message = camera_messages[player]
             if message:
                 short_message = "Camera unavailable; use mouse."
@@ -555,8 +693,24 @@ class Renderer:
                     MUTED,
                 )
         self._text("R: restart     Esc: quit", BOARD_LEFT, 700, self.small_font, MUTED)
-        self._text("Restart", 1236, 700, self.small_font, MUTED)
-        self._text("Quit", 1302, 700, self.small_font, MUTED)
+        pygame.draw.rect(self.screen, (255, 248, 226), self.home_rect, border_radius=10)
+        pygame.draw.rect(self.screen, NAVY, self.home_rect, width=2, border_radius=10)
+        home_label = self.small_font.render("Back to Start", True, NAVY)
+        self.screen.blit(home_label, home_label.get_rect(center=self.home_rect.center))
+
+    def _fit_text(
+        self,
+        text: str,
+        font: pygame.font.Font,
+        max_width: int,
+    ) -> str:
+        if font.size("...")[0] > max_width:
+            while text and font.size(text)[0] > max_width:
+                text = text[:-1]
+            return text
+        while text and font.size(text)[0] > max_width:
+            text = text[:-4] + "..."
+        return text
 
     def _text(
         self, text: str, x: int, y: int, font: pygame.font.Font, color: tuple[int, int, int]

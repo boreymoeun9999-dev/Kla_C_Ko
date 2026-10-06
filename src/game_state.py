@@ -22,6 +22,14 @@ def _cow_can_move(board: list[str | None], cows_placed: int) -> bool:
     )
 
 
+def _cows_are_trapped(board: list[str | None], cows_placed: int) -> bool:
+    return (
+        cows_placed >= TOTAL_COWS
+        and any(piece == "cow" for piece in board)
+        and not _cow_can_move(board, cows_placed)
+    )
+
+
 def _starting_board() -> list[str | None]:
     board: list[str | None] = [None] * BOARD_CELLS
     for index in STARTING_TIGER_CELLS:
@@ -59,9 +67,10 @@ class GameState:
         self.selected_tiger = None
         self.selected_cow = None
         if all_tigers_trapped(self.board):
-            self.winner = (
-                "cow" if _cow_can_move(self.board, self.cows_placed) else "draw"
-            )
+            self.winner = "cow"
+            self.current_turn = None
+        elif _cows_are_trapped(self.board, self.cows_placed):
+            self.winner = "tiger"
             self.current_turn = None
         else:
             self.current_turn = "tiger"
@@ -92,7 +101,10 @@ class GameState:
         self.board[destination] = "cow"
         self.selected_cow = None
         if all_tigers_trapped(self.board):
-            self.winner = "cow" if _cow_can_move(self.board, self.cows_placed) else "draw"
+            self.winner = "cow"
+            self.current_turn = None
+        elif _cows_are_trapped(self.board, self.cows_placed):
+            self.winner = "tiger"
             self.current_turn = None
         else:
             self.current_turn = "tiger"
@@ -129,9 +141,10 @@ class GameState:
             self.winner = "tiger"
             self.current_turn = None
         elif all_tigers_trapped(self.board):
-            self.winner = (
-                "cow" if _cow_can_move(self.board, self.cows_placed) else "draw"
-            )
+            self.winner = "cow"
+            self.current_turn = None
+        elif _cows_are_trapped(self.board, self.cows_placed):
+            self.winner = "tiger"
             self.current_turn = None
         elif not _cow_can_move(self.board, self.cows_placed):
             self.current_turn = "tiger"

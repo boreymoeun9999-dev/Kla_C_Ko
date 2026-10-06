@@ -84,6 +84,8 @@ def main() -> None:
         renderer.player_sound_labels.update(
             {player: path.name for player, path in sounds.player_sound_paths.items()}
         )
+        if renderer.active_name_field is not None:
+            pygame.key.start_text_input()
         while running:
             sounds.update()
             renderer.sound_volume = sounds.volume
@@ -91,28 +93,57 @@ def main() -> None:
             if not game_started:
                 camera_started = False
                 camera_cursor = None
-                for event in pygame.event.get():
+                start_events = pygame.event.get()
+                has_text_input = any(
+                    event.type == pygame.TEXTINPUT for event in start_events
+                )
+                for event in start_events:
                     if event.type == pygame.QUIT:
                         running = False
                     elif event.type == pygame.KEYDOWN:
                         if event.key == pygame.K_ESCAPE:
                             running = False
-                        elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                        elif (
+                            event.key in (pygame.K_RETURN, pygame.K_SPACE)
+                            and renderer.active_name_field is None
+                        ):
                             game_started = True
                             sounds.start_music()
-                    elif (
-                        event.type == pygame.MOUSEBUTTONDOWN
-                        and event.button == 1
-                        and renderer.start_button_rect.collidepoint(event.pos)
-                    ):
-                        game_started = True
-                        sounds.start_music()
+                        else:
+                            had_active_name_field = renderer.active_name_field is not None
+                            renderer.handle_name_input(
+                                event,
+                                allow_key_text=not has_text_input,
+                            )
+                            if (
+                                had_active_name_field
+                                and renderer.active_name_field is None
+                            ):
+                                pygame.key.stop_text_input()
+                    elif event.type == pygame.TEXTINPUT:
+                        renderer.handle_name_input(event)
+                    elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                        had_active_name_field = renderer.active_name_field is not None
+                        if renderer.focus_name_field(event.pos):
+                            if (
+                                not had_active_name_field
+                                or renderer.active_name_field is not None
+                            ):
+                                pygame.key.start_text_input()
+                            continue
+                        if had_active_name_field:
+                            pygame.key.stop_text_input()
+                        if renderer.start_button_rect.collidepoint(event.pos):
+                            game_started = True
+                            sounds.start_music()
 
                 if not game_started:
                     camera_started, camera_cursor = _camera_clicked_start(
                         cameras, trackers, gestures, renderer.start_button_rect
                     )
                     if camera_started:
+                        if renderer.active_name_field is not None:
+                            pygame.key.stop_text_input()
                         game_started = True
                         sounds.start_music()
 
@@ -203,6 +234,14 @@ def main() -> None:
                         _handle_sound_settings_click(
                             event.pos, renderer, sounds
                         )
+                    elif renderer.home_rect.collidepoint(event.pos):
+                        sounds.stop_winner()
+                        state.reset()
+                        game_started = False
+                        renderer.focus_name_field(
+                            renderer.name_field_rects["tiger"].center
+                        )
+                        pygame.key.start_text_input()
                     elif renderer.sound_settings_rect.collidepoint(event.pos):
                         renderer.sound_settings_open = True
                     elif renderer.music_toggle_rect.collidepoint(event.pos):
