@@ -1,0 +1,1 @@
+"""Tiger vs Cow game."""
