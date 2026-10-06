@@ -86,3 +86,32 @@ Run the rules tests with:
 ```powershell
 .\.venv-game\Scripts\python.exe -m unittest discover -s tests -v
 ```
+
+## Run the browser version
+
+Install its Node.js dependencies and start the Vite development server:
+
+```powershell
+cd web
+npm install
+npm run dev
+```
+
+The browser version supports mouse and touch play. Select **Enable camera** to
+allow webcam hand tracking; Tiger uses the right hand and Cow uses the left.
+The same webcam stream is shared between both player previews. Point your index
+finger at a board square; the gold cursor shows where it is pointing. Pinch to
+grab/select, move to a highlighted square, then release to make the move.
+Camera access requires HTTPS outside localhost. The browser game and its
+static images, sounds, and hand-tracking model are configured as separate
+Vercel services. Public paths `/models/*`, `/png/*`, and `/sounds/*` route to
+the static assets service; all other paths route to the browser app.
+
+Run the browser game tests and build with:
+
+```powershell
+npm test
+npm run build
+```
+
+Use `vercel dev` from the repository root to run the services together locally.

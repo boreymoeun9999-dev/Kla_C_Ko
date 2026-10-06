@@ -2,3 +2,6 @@
 .venv-game/
 __pycache__/
 *.py[cod]
+web/node_modules/
+web/dist/
+assets/dist/

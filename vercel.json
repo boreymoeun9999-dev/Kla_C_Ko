@@ -1,4 +1,43 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "outputDirectory": "build/web"
+  "services": {
+    "app": {
+      "root": "web",
+      "framework": "vite",
+      "buildCommand": "npm run build",
+      "outputDirectory": "dist"
+    },
+    "assets": {
+      "root": "assets",
+      "framework": "other",
+      "buildCommand": "node build-assets.mjs",
+      "outputDirectory": "dist"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/models/(.*)",
+      "destination": {
+        "service": "assets"
+      }
+    },
+    {
+      "source": "/png/(.*)",
+      "destination": {
+        "service": "assets"
+      }
+    },
+    {
+      "source": "/sounds/(.*)",
+      "destination": {
+        "service": "assets"
+      }
+    },
+    {
+      "source": "/(.*)",
+      "destination": {
+        "service": "app"
+      }
+    }
+  ]
 }
