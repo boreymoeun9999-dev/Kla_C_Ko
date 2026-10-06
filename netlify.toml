@@ -1,0 +1,13 @@
+# The Python desktop game (pygame + OpenCV + MediaPipe) can't be built or run
+# on Netlify, so the site is the browser version that lives in web/.
+# Using web/ as the base directory also stops Netlify from installing the
+# desktop requirements.txt in the repository root.
+[build]
+  base = "web"
+  publish = "."
+  command = ""
+
+[[headers]]
+  for = "/assets/models/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"
