@@ -1,8 +1,9 @@
 # Tiger vs Cow
 
-A two-player 4 x 4 strategy game with **4 Tigers** and **12 Cows**. The four
-Tigers start automatically in the board's corners. Tiger uses the left webcam;
-Cow uses the right webcam.
+A 4 x 4 strategy game with **4 Tigers** and **12 Cows**. Play against a friend
+or choose the computer opponent on the start screen. In AI mode, choose whether
+to play as Tiger or Cow. The four Tigers start automatically in the board's
+corners. Tiger uses the left webcam; Cow uses the right webcam.
 
 ## Run on Windows
 
@@ -44,7 +45,12 @@ game from this project folder with
 
 ## Controls
 
-- Click **Start Game** on the cover screen, pinch and release over it with the
+- Choose **Two players** or **Play vs AI** on the cover screen. In AI mode,
+  choose **Play as Tiger** or **Play as Cow**; the computer controls the other
+  side. Choose Easy (depth 1), Medium (depth 2), Hard (depth 3), or Master
+  (depth 5) for the computer's search strength. The AI makes a move
+  automatically when its turn starts.
+- Click **Start Game**, pinch and release over it with the
   assigned hand on either camera, or press **Enter** or **Space**.
 - Cow moves first. Pinch and hold, point at an empty square, then release to
   place one Cow using the **left hand only** on the right camera.
@@ -56,6 +62,13 @@ game from this project folder with
 - With the mouse, click an empty square to place a Cow. On Tiger's turn, click
   a Tiger to select it, then click an empty neighboring square or a valid
   landing square beyond a Cow to move/capture.
+- The player whose turn it is can click **Forfeit turn** below the board to
+  concede; the other player wins immediately.
+- Change the Cambodian board design with the camera: hold only your index
+  finger for Angkor Sandstone, only your middle finger for Royal Crimson,
+  index and middle fingers for Emerald Lotus, or only your pinky for
+  Moonstone Blue. Keep the gesture steady briefly; pinch gestures do not change
+  the board.
 - The turns alternate: Cow places a Cow, then Tiger moves a Tiger. After all
   12 Cows have been placed, Cow moves one Cow to an adjacent empty square on
   each turn instead of placing more Cows.
@@ -63,20 +76,20 @@ game from this project folder with
 - Tiger wins only after eating all 12 Cows; placing all 12 does not win the
   game.
 - The game is a draw if Cow has no Cows left to place and no Tiger can move.
-- A looping original instrumental plays during the game, alongside move sounds.
-- Tiger actions use `assets/sounds/tiger-roar.mp3`; Cow actions use
-  `assets/sounds/cow-moo.mp3`. When either side wins, a celebratory instrumental
-  plays instead of an animal sound and repeats for up to two minutes. Press
+- A looping original instrumental plays during the game, alongside a short
+  double-beep for Tiger and Cow moves. When either side wins, a celebratory
+  instrumental plays instead and repeats for up to two minutes. Press
   **R** or click **Restart** to close the winner panel and stop the music.
 - Click **Choose song** to select a WAV, OGG, or MP3 track. The game remembers
   the selected file and uses it the next time it starts.
 - Click **Pause** beside the song button to pause or resume the background
   music without muting Tiger or Cow sounds.
-- Click **Sound settings** to choose WAV, OGG, or MP3 Tiger/Cow sound files,
-  change the game volume, or mute/unmute. These preferences are remembered.
+- Click **Sound settings** to choose custom WAV, OGG, or MP3 Tiger/Cow sounds,
+  use **Use default sounds** to restore the double-beep, change the game
+  volume, or mute/unmute. These preferences are remembered.
 - When either side wins, a congratulations panel displays the winning
   character and plays celebratory music. Successful Cow placements and Tiger
-  moves play their move sound. A draw has its own message and sound. No
+  moves play the double-beep sound. A draw has its own message and sound. No
   more Cows can be placed after all 12 have been used.
 - Press **R** or click the restart button to start over.
 - Press **Esc** or click the close button to quit.

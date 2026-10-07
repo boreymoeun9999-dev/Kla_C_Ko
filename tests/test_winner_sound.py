@@ -1,5 +1,8 @@
 import os
+import json
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
@@ -18,11 +21,19 @@ class WinnerSoundTests(unittest.TestCase):
     def setUp(self) -> None:
         pygame.mixer.pre_init(frequency=SAMPLE_RATE, size=-16, channels=1)
         pygame.init()
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.settings_patch = patch(
+            "src.sound_effects.SOUND_SETTINGS_PATH",
+            Path(self.temp_dir.name) / "sound.json",
+        )
+        self.settings_patch.start()
         self.sounds = SoundEffects()
 
     def tearDown(self) -> None:
         self.sounds.stop_music()
+        self.settings_patch.stop()
         pygame.quit()
+        self.temp_dir.cleanup()
 
     def test_winner_music_loops_until_two_minute_deadline(self) -> None:
         with patch("src.sound_effects.time.monotonic", return_value=100.0):
@@ -56,20 +67,48 @@ class WinnerSoundTests(unittest.TestCase):
             self.sounds._players["tiger"].get_raw(),
         )
 
-    def test_move_sounds_remain_customizable_animal_sounds(self) -> None:
+    def test_both_players_use_short_beep_sounds_by_default(self) -> None:
         self.assertEqual(
             self.sounds.player_sound_paths,
-            {"tiger": TIGER_SOUND_PATH, "cow": COW_SOUND_PATH},
+            {"tiger": None, "cow": None},
         )
-        self.assertGreater(self.sounds._players["tiger"].get_length(), 0.5)
-        self.assertGreater(self.sounds._players["cow"].get_length(), 0.5)
-        self.assertNotEqual(
+        self.assertLess(self.sounds._players["tiger"].get_length(), 0.5)
+        self.assertIs(
+            self.sounds._players["tiger"],
+            self.sounds._players["cow"],
+        )
+        self.assertEqual(
             self.sounds._players["tiger"].get_raw(),
             self.sounds._players["cow"].get_raw(),
         )
         self.assertNotEqual(
             self.sounds._winner_music.get_raw(),
-            self.sounds._players["cow"].get_raw(),
+            self.sounds._players["tiger"].get_raw(),
+        )
+
+    def test_legacy_packaged_animal_sounds_migrate_to_beep_defaults(self) -> None:
+        settings_path = Path(self.temp_dir.name) / "sound.json"
+        settings_path.write_text(
+            json.dumps(
+                {
+                    "player_sounds": {
+                        "tiger": str(TIGER_SOUND_PATH),
+                        "cow": str(COW_SOUND_PATH),
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        restored_sounds = SoundEffects()
+
+        self.assertEqual(
+            restored_sounds.player_sound_paths,
+            {"tiger": None, "cow": None},
+        )
+        self.assertEqual(
+            restored_sounds._players["tiger"].get_raw(),
+            restored_sounds._players["cow"].get_raw(),
         )
 
     def test_closing_winner_panel_stops_celebration_music(self) -> None:

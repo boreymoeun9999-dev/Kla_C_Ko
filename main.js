@@ -20,7 +20,7 @@ const videoElements = [
   document.querySelector("#camera-preview-tiger"),
   document.querySelector("#camera-preview-cow"),
 ];
-const moveSound = document.querySelector("#move-sound");
+const audioContext = new AudioContext();
 const music = document.querySelector("#music");
 const volume = document.querySelector("#volume");
 const muted = document.querySelector("#mute-toggle");
@@ -104,7 +104,7 @@ function handleCell(index) {
       changed = game.moveTiger(index);
     }
   }
-  if (changed) playMoveSound(player);
+  if (changed) playMoveSound();
   render();
 }
 
@@ -262,14 +262,33 @@ function showWinner() {
   if (!winnerDialog.open) winnerDialog.showModal();
 }
 
-function playMoveSound(player) {
+function playMoveSound() {
   if (muted.getAttribute("aria-pressed") === "true") return;
-  moveSound.src = `/sounds/${player === "tiger" ? "tiger-roar" : "cow-moo"}.mp3`;
-  moveSound.volume = Number(volume.value) / 100;
-  moveSound.currentTime = 0;
-  moveSound.play().catch((error) => {
-    gameMessage.textContent = `Could not play move sound: ${error.message}`;
-  });
+  const playBeeps = () => {
+    const startTime = audioContext.currentTime;
+    const oscillator = audioContext.createOscillator();
+    const envelope = audioContext.createGain();
+    const loudness = Number(volume.value) / 500;
+    oscillator.frequency.value = 880;
+    envelope.gain.setValueAtTime(0, startTime);
+    for (const beepStart of [0, 0.13]) {
+      envelope.gain.setValueAtTime(0, startTime + beepStart);
+      envelope.gain.linearRampToValueAtTime(loudness, startTime + beepStart + 0.008);
+      envelope.gain.setValueAtTime(loudness, startTime + beepStart + 0.065);
+      envelope.gain.linearRampToValueAtTime(0, startTime + beepStart + 0.075);
+    }
+    oscillator.connect(envelope);
+    envelope.connect(audioContext.destination);
+    oscillator.start(startTime);
+    oscillator.stop(startTime + 0.21);
+  };
+  if (audioContext.state === "suspended") {
+    audioContext.resume().then(playBeeps).catch((error) => {
+      gameMessage.textContent = `Could not play move sound: ${error.message}`;
+    });
+  } else {
+    playBeeps();
+  }
 }
 
 function cellLabel(index, piece) {
@@ -284,6 +303,9 @@ function capitalize(value) {
 document.querySelector("#start-game").addEventListener("click", () => {
   cover.classList.add("hidden");
   gameElement.classList.remove("hidden");
+  audioContext.resume().catch((error) => {
+    gameMessage.textContent = `Could not start game audio: ${error.message}`;
+  });
 });
 
 document.querySelector("#restart").addEventListener("click", () => {
@@ -328,11 +350,9 @@ muted.addEventListener("click", () => {
 });
 
 volume.addEventListener("input", () => {
-  moveSound.volume = Number(volume.value) / 100;
   music.volume = Number(volume.value) / 100;
 });
 
-moveSound.volume = Number(volume.value) / 100;
 music.volume = Number(volume.value) / 100;
 
 document.addEventListener("keydown", (event) => {

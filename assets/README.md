@@ -16,8 +16,8 @@ asset is intended to float over the game UI.
 | `png/restart_button.png` | Restart control | 256 x 256 |
 | `png/close_button.png` | Close control | 256 x 256 |
 | `png/score_badge.png` | Empty score badge | 256 x 256 |
-| `sounds/tiger-roar.mp3` | Tiger move sound | — |
-| `sounds/cow-moo.mp3` | Cow move sound | — |
+| `sounds/tiger-roar.mp3` | Optional custom Tiger sound | — |
+| `sounds/cow-moo.mp3` | Optional custom Cow sound | — |
 
 The webcam game also uses `models/hand_landmarker.task`, the MediaPipe hand
 landmark model bundle.

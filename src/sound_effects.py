@@ -17,6 +17,10 @@ from src.config import (
 SAMPLE_RATE = 44100
 AMPLITUDE = 9000
 WIN_SOUND_DURATION_SECONDS = 120
+LEGACY_PLAYER_SOUND_PATHS = {
+    "tiger": TIGER_SOUND_PATH.resolve(),
+    "cow": COW_SOUND_PATH.resolve(),
+}
 
 
 def _make_tone(frequencies: tuple[int, ...], duration: float) -> pygame.mixer.Sound:
@@ -91,14 +95,15 @@ class SoundEffects:
         self._music_path: Path | None = None
         self._music_paused = False
         self._move = _make_tone((660,), 0.09)
+        self._default_player_sound = _make_tone((880, 0, 880), 0.3)
         self._players = {
-            "tiger": pygame.mixer.Sound(str(TIGER_SOUND_PATH)),
-            "cow": pygame.mixer.Sound(str(COW_SOUND_PATH)),
+            "tiger": self._default_player_sound,
+            "cow": self._default_player_sound,
         }
         self._draw = _make_tone((440, 392, 349), 0.72)
         self._player_paths = {
-            "tiger": TIGER_SOUND_PATH,
-            "cow": COW_SOUND_PATH,
+            "tiger": None,
+            "cow": None,
         }
         self._volume = 0.7
         self._muted = False
@@ -177,7 +182,7 @@ class SoundEffects:
         return self._muted
 
     @property
-    def player_sound_paths(self) -> dict[str, Path]:
+    def player_sound_paths(self) -> dict[str, Path | None]:
         return self._player_paths.copy()
 
     def set_volume(self, volume: float) -> None:
@@ -199,6 +204,13 @@ class SoundEffects:
         sound = pygame.mixer.Sound(str(path))
         self._player_paths[player] = path
         self._players[player] = sound
+        self._apply_volume()
+        self._save_sound_settings()
+
+    def reset_player_sounds(self) -> None:
+        for player in self._players:
+            self._players[player] = self._default_player_sound
+            self._player_paths[player] = None
         self._apply_volume()
         self._save_sound_settings()
 
@@ -241,6 +253,8 @@ class SoundEffects:
             if player not in self._players or not isinstance(saved_path, str):
                 continue
             path = Path(saved_path).expanduser()
+            if path.resolve() == LEGACY_PLAYER_SOUND_PATHS[player]:
+                continue
             if not path.is_file():
                 print(f"Saved {player} sound file is missing: {path}")
                 continue
@@ -255,7 +269,9 @@ class SoundEffects:
             "volume": self._volume,
             "muted": self._muted,
             "player_sounds": {
-                player: str(path) for player, path in self._player_paths.items()
+                player: str(path)
+                for player, path in self._player_paths.items()
+                if path is not None
             },
         }
         SOUND_SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)

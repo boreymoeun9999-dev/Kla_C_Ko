@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+import time
+from collections.abc import Callable
 from typing import Protocol
 
 import pygame
@@ -9,9 +11,15 @@ from tkinter import Tk, filedialog
 
 from src.camera import Camera, open_player_cameras
 from src.config import FPS, WINDOW_HEIGHT, WINDOW_WIDTH
+from src.ai_player import AI_DIFFICULTIES, play_ai_turn
 from src.game_state import GameState, TOTAL_COWS
 from src.game_rules import legal_cow_moves, legal_tiger_moves
-from src.gesture_recognizer import GestureRecognizer, HandInput, map_to_board
+from src.gesture_recognizer import (
+    BoardThemeGestureRecognizer,
+    GestureRecognizer,
+    HandInput,
+    map_to_board,
+)
 from src.hand_tracker import HandObservation, HandTracker
 from src.renderer import Renderer
 from src.sound_effects import SAMPLE_RATE, SoundEffects
@@ -19,6 +27,7 @@ from src.sound_effects import SAMPLE_RATE, SoundEffects
 
 PLAYERS = ("tiger", "cow")
 PLAYER_HANDS = {"tiger": "right", "cow": "left"}
+AI_MOVE_DELAY_SECONDS = 0.45
 
 
 class _ClickRenderer(Protocol):
@@ -41,6 +50,9 @@ def main() -> None:
     sounds = SoundEffects()
     state = GameState()
     gestures = {player: GestureRecognizer() for player in PLAYERS}
+    theme_gestures = {
+        player: BoardThemeGestureRecognizer() for player in PLAYERS
+    }
     cameras, camera_messages = open_player_cameras(PLAYERS)
     camera_indices = {
         player: camera.device_index if camera is not None else None
@@ -75,6 +87,7 @@ def main() -> None:
 
     running = True
     game_started = False
+    ai_turn_deadline: float | None = None
     try:
         if sounds.music_path is not None:
             renderer.music_label = sounds.music_path.name
@@ -82,7 +95,10 @@ def main() -> None:
         renderer.sound_muted = sounds.muted
         renderer.music_paused = sounds.music_paused
         renderer.player_sound_labels.update(
-            {player: path.name for player, path in sounds.player_sound_paths.items()}
+            {
+                player: path.name if path is not None else "Beep beep"
+                for player, path in sounds.player_sound_paths.items()
+            }
         )
         if renderer.active_name_field is not None:
             pygame.key.start_text_input()
@@ -108,6 +124,7 @@ def main() -> None:
                             and renderer.active_name_field is None
                         ):
                             game_started = True
+                            _configure_ai_opponent(renderer)
                             sounds.start_music()
                         else:
                             had_active_name_field = renderer.active_name_field is not None
@@ -133,18 +150,26 @@ def main() -> None:
                             continue
                         if had_active_name_field:
                             pygame.key.stop_text_input()
-                        if renderer.start_button_rect.collidepoint(event.pos):
+                        if _handle_start_screen_click(event.pos, renderer):
                             game_started = True
+                            _configure_ai_opponent(renderer)
                             sounds.start_music()
 
                 if not game_started:
                     camera_started, camera_cursor = _camera_clicked_start(
-                        cameras, trackers, gestures, renderer.start_button_rect
+                        cameras,
+                        trackers,
+                        gestures,
+                        renderer.start_button_rect,
+                        click_handler=lambda position: _handle_start_screen_click(
+                            position, renderer
+                        ),
                     )
                     if camera_started:
                         if renderer.active_name_field is not None:
                             pygame.key.stop_text_input()
                         game_started = True
+                        _configure_ai_opponent(renderer)
                         sounds.start_music()
 
                 renderer.draw_start_screen(camera_cursor)
@@ -155,7 +180,14 @@ def main() -> None:
             cursor = None
             gestures_this_frame = {}
             gesture_positions = {}
-            active_player = state.current_turn
+            camera_clicks: list[
+                tuple[str, tuple[int, int], tuple[int, int]]
+            ] = []
+            active_player = (
+                state.current_turn
+                if state.current_turn != renderer.ai_player
+                else None
+            )
             frames_by_camera: dict[int, MatLike | None] = {}
             hands_by_camera = {}
             for player in PLAYERS:
@@ -195,27 +227,100 @@ def main() -> None:
                     player,
                     hands_by_camera[device_index],
                 )
+                observation = hands_by_camera[device_index]
+                theme_gesture = (
+                    observation.theme_gesture
+                    if player != renderer.ai_player
+                    and observation is not None
+                    and observation.handedness.casefold() == PLAYER_HANDS[player]
+                    else None
+                )
+                selected_theme = theme_gestures[player].update(theme_gesture)
+                if selected_theme is not None:
+                    renderer.board_theme_index = selected_theme
                 normalized_cursor, gesture_click = gestures[player].update(hand)
                 gestures_this_frame[player] = gesture_click
                 if normalized_cursor is not None:
                     gesture_positions[player] = normalized_cursor
+                    if gesture_click:
+                        screen_position = map_to_board(
+                            normalized_cursor,
+                            0,
+                            0,
+                            WINDOW_WIDTH,
+                            WINDOW_HEIGHT,
+                        )
+                        board_position = map_to_board(
+                            normalized_cursor,
+                            renderer.board_rect.left,
+                            renderer.board_rect.top,
+                            renderer.board_rect.width,
+                            renderer.board_rect.height,
+                        )
+                        camera_clicks.append(
+                            (player, screen_position, board_position)
+                        )
 
             if active_player is not None:
                 hand_position = gesture_positions.get(active_player)
                 if hand_position is not None:
-                    cursor = map_to_board(
+                    screen_cursor = map_to_board(
                         hand_position,
-                        renderer.board_rect.left,
-                        renderer.board_rect.top,
-                        renderer.board_rect.width,
-                        renderer.board_rect.height,
+                        0,
+                        0,
+                        WINDOW_WIDTH,
+                        WINDOW_HEIGHT,
                     )
-                if (
+                    cursor = (
+                        screen_cursor
+                        if _is_game_control_position(renderer, screen_cursor)
+                        else map_to_board(
+                            hand_position,
+                            renderer.board_rect.left,
+                            renderer.board_rect.top,
+                            renderer.board_rect.width,
+                            renderer.board_rect.height,
+                        )
+                    )
+            if cursor is None and gesture_positions:
+                hand_position = next(iter(gesture_positions.values()))
+                cursor = map_to_board(
+                    hand_position,
+                    0,
+                    0,
+                    WINDOW_WIDTH,
+                    WINDOW_HEIGHT,
+                )
+
+            for camera_player, screen_position, board_position in camera_clicks:
+                if _is_game_control_position(renderer, screen_position):
+                    action = _handle_game_click(
+                        screen_position,
+                        state,
+                        renderer,
+                        sounds,
+                    )
+                    if action == "quit":
+                        running = False
+                    elif action == "home":
+                        ai_turn_deadline = None
+                        game_started = False
+                        renderer.focus_name_field(
+                            renderer.name_field_rects["tiger"].center
+                        )
+                        pygame.key.start_text_input()
+                elif (
                     not renderer.sound_settings_open
-                    and gestures_this_frame.get(active_player, False)
-                    and cursor is not None
+                    and camera_player != renderer.ai_player
+                    and camera_player == state.current_turn
                 ):
-                    _handle_click(active_player, cursor, state, renderer, sounds)
+                    _handle_click(
+                        camera_player,
+                        board_position,
+                        state,
+                        renderer,
+                        sounds,
+                    )
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -229,42 +334,49 @@ def main() -> None:
                     elif event.key == pygame.K_r and not renderer.sound_settings_open:
                         sounds.stop_winner()
                         state.reset()
+                        ai_turn_deadline = None
                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                    if renderer.sound_settings_open:
-                        _handle_sound_settings_click(
-                            event.pos, renderer, sounds
-                        )
-                    elif renderer.home_rect.collidepoint(event.pos):
+                    action = _handle_game_click(
+                        event.pos,
+                        state,
+                        renderer,
+                        sounds,
+                    )
+                    if action == "quit":
+                        running = False
+                    elif action == "home":
                         sounds.stop_winner()
-                        state.reset()
+                        ai_turn_deadline = None
                         game_started = False
                         renderer.focus_name_field(
                             renderer.name_field_rects["tiger"].center
                         )
                         pygame.key.start_text_input()
-                    elif renderer.sound_settings_rect.collidepoint(event.pos):
-                        renderer.sound_settings_open = True
-                    elif renderer.music_toggle_rect.collidepoint(event.pos):
-                        sounds.toggle_music()
-                        renderer.music_paused = sounds.music_paused
-                    elif renderer.close_rect.collidepoint(event.pos):
-                        running = False
-                    elif renderer.restart_rect.collidepoint(event.pos):
-                        sounds.stop_winner()
-                        state.reset()
-                    elif renderer.music_rect.collidepoint(event.pos):
-                        music_path = _choose_music_file()
-                        if music_path is not None:
-                            try:
-                                sounds.set_music(music_path)
-                                renderer.music_label = music_path.name
-                            except (pygame.error, OSError) as error:
-                                renderer.music_label = "Song error"
-                                print(f"Could not load selected music: {error}")
-                    else:
-                        _handle_click(
-                            state.current_turn, event.pos, state, renderer, sounds
+
+            if (
+                renderer.ai_player is not None
+                and state.current_turn == renderer.ai_player
+                and not state.is_over
+                and not renderer.sound_settings_open
+            ):
+                if ai_turn_deadline is None:
+                    ai_turn_deadline = time.monotonic() + AI_MOVE_DELAY_SECONDS
+                elif time.monotonic() >= ai_turn_deadline:
+                    ai_player = state.current_turn
+                    if (
+                        play_ai_turn(
+                            state,
+                            depth=AI_DIFFICULTIES[renderer.ai_strength],
                         )
+                        and ai_player is not None
+                    ):
+                        if state.winner is not None:
+                            _play_action_sound(state, sounds)
+                        else:
+                            sounds.play_player(ai_player)
+                    ai_turn_deadline = None
+            else:
+                ai_turn_deadline = None
 
             renderer.draw(state, cursor, camera_frames, camera_messages, camera_indices)
             pygame.display.flip()
@@ -330,6 +442,7 @@ def _camera_clicked_start(
     trackers: dict[str, HandTracker | None],
     gestures: dict[str, GestureRecognizer],
     start_button_rect: pygame.Rect,
+    click_handler: Callable[[tuple[int, int]], bool] | None = None,
 ) -> tuple[bool, tuple[int, int] | None]:
     frames_by_camera: dict[int, MatLike | None] = {}
     hands_by_camera: dict[int, HandObservation | None] = {}
@@ -374,8 +487,12 @@ def _camera_clicked_start(
             WINDOW_WIDTH,
             WINDOW_HEIGHT,
         )
-        if gesture_click and start_button_rect.collidepoint(cursor):
-            return True, cursor
+        if gesture_click:
+            if click_handler is not None:
+                if click_handler(cursor):
+                    return True, cursor
+            elif start_button_rect.collidepoint(cursor):
+                return True, cursor
 
     return False, cursor
 
@@ -423,6 +540,12 @@ def _handle_sound_settings_click(
     if renderer.settings_close_rect.collidepoint(position):
         renderer.sound_settings_open = False
         return
+    elif renderer.settings_reset_sounds_rect.collidepoint(position):
+        sounds.reset_player_sounds()
+        renderer.player_sound_labels.update(
+            {"tiger": "Beep beep", "cow": "Beep beep"}
+        )
+        return
     elif renderer.settings_volume_down_rect.collidepoint(position):
         sounds.set_volume(sounds.volume - 0.1)
         return
@@ -457,6 +580,110 @@ def _play_action_sound(state: GameState, sounds: _ClickSounds) -> None:
         sounds.play_draw()
     elif state.winner is not None:
         sounds.play_winner(state.winner)
+
+
+def _configure_ai_opponent(renderer: Renderer) -> None:
+    renderer.ai_player = (
+        "cow" if renderer.human_player == "tiger" else "tiger"
+    ) if renderer.play_mode == "ai" else None
+
+
+def _handle_start_screen_click(
+    position: tuple[int, int],
+    renderer: Renderer,
+) -> bool:
+    if renderer.focus_name_field(position):
+        pygame.key.start_text_input()
+        return False
+
+    pygame.key.stop_text_input()
+    if renderer.play_two_player_rect.collidepoint(position):
+        renderer.play_mode = "two-player"
+    elif renderer.play_ai_rect.collidepoint(position):
+        renderer.play_mode = "ai"
+    elif renderer.play_as_tiger_rect.collidepoint(position):
+        renderer.human_player = "tiger"
+    elif renderer.play_as_cow_rect.collidepoint(position):
+        renderer.human_player = "cow"
+    elif renderer.play_mode == "ai":
+        for strength, rect in renderer.ai_strength_rects.items():
+            if rect.collidepoint(position):
+                renderer.ai_strength = strength
+                break
+    return renderer.start_button_rect.collidepoint(position)
+
+
+def _is_game_control_position(
+    renderer: Renderer,
+    position: tuple[int, int],
+) -> bool:
+    controls = (
+        renderer.home_rect,
+        renderer.forfeit_rect,
+        renderer.sound_settings_rect,
+        renderer.music_toggle_rect,
+        renderer.close_rect,
+        renderer.restart_rect,
+        renderer.music_rect,
+    )
+    modal_controls = (
+        renderer.settings_tiger_rect,
+        renderer.settings_cow_rect,
+        renderer.settings_volume_down_rect,
+        renderer.settings_volume_up_rect,
+        renderer.settings_mute_rect,
+        renderer.settings_reset_sounds_rect,
+        renderer.settings_close_rect,
+    )
+    return any(rect.collidepoint(position) for rect in controls) or (
+        renderer.sound_settings_open
+        and any(rect.collidepoint(position) for rect in modal_controls)
+    )
+
+
+def _handle_game_click(
+    position: tuple[int, int],
+    state: GameState,
+    renderer: Renderer,
+    sounds: SoundEffects,
+) -> str | None:
+    if renderer.sound_settings_open:
+        _handle_sound_settings_click(position, renderer, sounds)
+    elif renderer.home_rect.collidepoint(position):
+        sounds.stop_winner()
+        state.reset()
+        renderer.ai_player = None
+        return "home"
+    elif renderer.forfeit_rect.collidepoint(position):
+        player = state.current_turn
+        if (
+            player is not None
+            and player != renderer.ai_player
+            and state.forfeit(player)
+        ):
+            _play_action_sound(state, sounds)
+    elif renderer.sound_settings_rect.collidepoint(position):
+        renderer.sound_settings_open = True
+    elif renderer.music_toggle_rect.collidepoint(position):
+        sounds.toggle_music()
+        renderer.music_paused = sounds.music_paused
+    elif renderer.close_rect.collidepoint(position):
+        return "quit"
+    elif renderer.restart_rect.collidepoint(position):
+        sounds.stop_winner()
+        state.reset()
+    elif renderer.music_rect.collidepoint(position):
+        music_path = _choose_music_file()
+        if music_path is not None:
+            try:
+                sounds.set_music(music_path)
+                renderer.music_label = music_path.name
+            except (pygame.error, OSError) as error:
+                renderer.music_label = "Song error"
+                print(f"Could not load selected music: {error}")
+    elif state.current_turn != renderer.ai_player:
+        _handle_click(state.current_turn, position, state, renderer, sounds)
+    return None
 
 
 def _hand_input_for_player(

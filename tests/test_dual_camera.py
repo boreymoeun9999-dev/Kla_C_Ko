@@ -17,6 +17,118 @@ from src.renderer import Renderer
 
 
 class DualCameraTests(unittest.TestCase):
+    def test_camera_hit_testing_covers_all_game_buttons(self) -> None:
+        renderer = Renderer.__new__(Renderer)
+        renderer.sound_settings_open = False
+        game_button_names = (
+            "home_rect",
+            "forfeit_rect",
+            "sound_settings_rect",
+            "music_toggle_rect",
+            "close_rect",
+            "restart_rect",
+            "music_rect",
+        )
+        modal_button_names = (
+            "settings_tiger_rect",
+            "settings_cow_rect",
+            "settings_volume_down_rect",
+            "settings_volume_up_rect",
+            "settings_mute_rect",
+            "settings_reset_sounds_rect",
+            "settings_close_rect",
+        )
+        for index, name in enumerate((*game_button_names, *modal_button_names)):
+            setattr(renderer, name, pygame.Rect(index * 60, 0, 50, 40))
+
+        for name in game_button_names:
+            rect = getattr(renderer, name)
+            self.assertTrue(
+                game._is_game_control_position(renderer, rect.center),
+                name,
+            )
+        renderer.sound_settings_open = True
+        for name in modal_button_names:
+            rect = getattr(renderer, name)
+            self.assertTrue(
+                game._is_game_control_position(renderer, rect.center),
+                name,
+            )
+
+    def test_camera_pinch_release_clicks_restart_button(self) -> None:
+        class CameraStub:
+            device_index = 0
+
+            def read(self):
+                return np.zeros((16, 16, 3), dtype=np.uint8)
+
+            def close(self) -> None:
+                pass
+
+        class HandTrackerStub:
+            def __init__(self) -> None:
+                self.observations = iter(
+                    (
+                        HandObservation(0.93, 0.06, False, "Left"),
+                        HandObservation(0.93, 0.06, True, "Left"),
+                        HandObservation(0.93, 0.06, False, "Left"),
+                        HandObservation(0.93, 0.06, False, "Left"),
+                    )
+                )
+
+            def process(self, _frame):
+                return next(self.observations)
+
+            def close(self) -> None:
+                pass
+
+        states_seen = []
+        pygame.init()
+        events = [
+            [
+                pygame.event.Event(
+                    pygame.MOUSEBUTTONDOWN,
+                    button=1,
+                    pos=(680, 630),
+                )
+            ],
+            [
+                pygame.event.Event(
+                    pygame.MOUSEBUTTONDOWN,
+                    button=1,
+                    pos=(BOARD_LEFT + CELL_SIZE + CELL_SIZE // 2,
+                         BOARD_TOP + CELL_SIZE + CELL_SIZE // 2),
+                )
+            ],
+            [],
+            [],
+            [pygame.event.Event(pygame.QUIT)],
+        ]
+
+        def record_draw(_renderer, state, _cursor, _frames, _messages, _indices):
+            states_seen.append(state.cows_placed)
+
+        try:
+            with (
+                patch.object(
+                    game,
+                    "open_player_cameras",
+                    return_value=(
+                        {"tiger": None, "cow": CameraStub()},
+                        {"tiger": None, "cow": None},
+                    ),
+                ),
+                patch.object(game, "HandTracker", HandTrackerStub),
+                patch.object(pygame.event, "get", side_effect=events),
+                patch.object(Renderer, "draw", record_draw),
+            ):
+                game.main()
+        finally:
+            pygame.quit()
+
+        self.assertIn(1, states_seen)
+        self.assertEqual(states_seen[-1], 0)
+
     def test_can_type_both_player_names_from_keyboard_before_starting(self) -> None:
         names_seen_in_game = []
         original_draw = Renderer.draw
@@ -37,7 +149,7 @@ class DualCameraTests(unittest.TestCase):
                 pygame.event.Event(pygame.KEYDOWN, key=pygame.K_i, unicode="i"),
                 pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN, unicode="\r"),
                 pygame.event.Event(
-                    pygame.MOUSEBUTTONDOWN, button=1, pos=(680, 566)
+                    pygame.MOUSEBUTTONDOWN, button=1, pos=(680, 630)
                 ),
             ],
             [pygame.event.Event(pygame.QUIT)],
@@ -77,7 +189,7 @@ class DualCameraTests(unittest.TestCase):
 
         pygame.init()
         events = [
-            [pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=(680, 566))],
+            [pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=(680, 630))],
             [
                 pygame.event.Event(
                     pygame.MOUSEBUTTONDOWN,
@@ -238,7 +350,7 @@ class DualCameraTests(unittest.TestCase):
 
         pygame.init()
         events = [
-            [pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=(680, 566))],
+            [pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=(680, 630))],
             [],
             [],
             [],
@@ -408,7 +520,7 @@ class DualCameraTests(unittest.TestCase):
         camera = CameraStub()
         pygame.init()
         events = [
-            [pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=(680, 566))],
+            [pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=(680, 630))],
             [],
             [],
             [pygame.event.Event(pygame.QUIT)],

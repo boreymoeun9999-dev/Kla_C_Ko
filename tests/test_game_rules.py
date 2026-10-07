@@ -232,6 +232,35 @@ class GameRulesTests(unittest.TestCase):
             STARTING_TIGER_CELLS,
         )
 
+    def test_current_player_can_forfeit_and_award_win_to_opponent(self) -> None:
+        for player, expected_winner in (("cow", "tiger"), ("tiger", "cow")):
+            with self.subTest(player=player):
+                state = GameState(current_turn=player)
+
+                self.assertTrue(state.forfeit(player))
+                self.assertEqual(state.winner, expected_winner)
+                self.assertEqual(state.resigned_player, player)
+                self.assertIsNone(state.current_turn)
+                self.assertTrue(state.is_over)
+
+    def test_forfeit_rejects_wrong_player_or_completed_game(self) -> None:
+        state = GameState()
+
+        self.assertFalse(state.forfeit("tiger"))
+        self.assertFalse(state.forfeit("unknown"))
+        self.assertTrue(state.forfeit("cow"))
+        self.assertFalse(state.forfeit("tiger"))
+
+    def test_reset_clears_forfeit_result(self) -> None:
+        state = GameState()
+        self.assertTrue(state.forfeit("cow"))
+
+        state.reset()
+
+        self.assertIsNone(state.winner)
+        self.assertIsNone(state.resigned_player)
+        self.assertEqual(state.current_turn, "cow")
+
 
 if __name__ == "__main__":
     unittest.main()

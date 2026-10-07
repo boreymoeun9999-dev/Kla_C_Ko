@@ -10,6 +10,7 @@ from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 
 from src.config import HAND_MODEL_PATH
+from src.gesture_recognizer import detect_board_theme_gesture
 
 
 HAND_CONNECTIONS = (
@@ -27,6 +28,7 @@ class HandObservation(NamedTuple):
     y: float
     is_pinching: bool
     handedness: str
+    theme_gesture: str | None = None
 
 
 class HandTracker:
@@ -72,11 +74,16 @@ class HandTracker:
         pinch_distance = (
             (index_tip.x - thumb_tip.x) ** 2 + (index_tip.y - thumb_tip.y) ** 2
         ) ** 0.5
+        is_pinching = pinch_distance < 0.045
         return HandObservation(
             index_tip.x,
             index_tip.y,
-            pinch_distance < 0.045,
+            is_pinching,
             handedness,
+            detect_board_theme_gesture(
+                [(landmark.x, landmark.y) for landmark in landmarks],
+                is_pinching,
+            ),
         )
 
     def close(self) -> None:

@@ -97,6 +97,27 @@ class SoundSettingsTests(unittest.TestCase):
         self.assertFalse(restored_sounds.muted)
         self.assertAlmostEqual(pygame.mixer.Channel(0).get_volume(), 0.22 * 0.4, places=2)
 
+    def test_reset_player_sounds_restores_and_persists_default_beeps(self) -> None:
+        sounds = SoundEffects()
+        sounds.set_player_sound("tiger", self.music_file)
+        sounds.set_player_sound("cow", self.music_file)
+
+        sounds.reset_player_sounds()
+
+        self.assertEqual(sounds.player_sound_paths, {"tiger": None, "cow": None})
+        self.assertIs(
+            sounds._players["tiger"],
+            sounds._players["cow"],
+        )
+        saved_settings = self.sound_settings_file.read_text(encoding="utf-8")
+        self.assertIn('"player_sounds": {}', saved_settings)
+
+        restored_sounds = SoundEffects()
+        self.assertEqual(
+            restored_sounds.player_sound_paths,
+            {"tiger": None, "cow": None},
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

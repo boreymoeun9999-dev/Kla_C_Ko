@@ -46,6 +46,7 @@ class GameState:
     selected_cow: int | None = None
     cows_placed: int = 0
     cows_captured: int = 0
+    resigned_player: str | None = None
 
     @property
     def is_over(self) -> bool:
@@ -152,6 +153,21 @@ class GameState:
             self.current_turn = "cow"
         return True
 
+    def forfeit(self, player: str) -> bool:
+        if (
+            self.is_over
+            or player not in {"tiger", "cow"}
+            or player != self.current_turn
+        ):
+            return False
+
+        self.winner = "cow" if player == "tiger" else "tiger"
+        self.resigned_player = player
+        self.current_turn = None
+        self.selected_tiger = None
+        self.selected_cow = None
+        return True
+
     def reset(self) -> None:
         self.board = _starting_board()
         self.current_turn = "cow"
@@ -160,3 +176,4 @@ class GameState:
         self.selected_cow = None
         self.cows_placed = 0
         self.cows_captured = 0
+        self.resigned_player = None

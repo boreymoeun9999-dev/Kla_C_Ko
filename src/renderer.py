@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from pathlib import Path
+import unicodedata
 
 import cv2
 import pygame
 from cv2.typing import MatLike
 
+from src.ai_player import AI_DIFFICULTIES
 from src.config import (
     ASSET_DIR,
     BACKGROUND_ASSET_DIR,
@@ -32,21 +34,46 @@ TIGER_PALE = (255, 232, 202)
 COW_COLOR = (57, 151, 125)
 COW_PALE = (219, 243, 231)
 WHITE = (255, 255, 255)
-CELL_LIGHT = (250, 251, 253)
-CELL_DARK = (231, 236, 243)
+BOARD_THEMES = (
+    {
+        "name": "Angkor Sandstone",
+        "wood": (83, 45, 38),
+        "stone": (112, 66, 49),
+        "gold": (218, 174, 83),
+        "light": (248, 236, 205),
+        "dark": (218, 190, 137),
+    },
+    {
+        "name": "Royal Crimson",
+        "wood": (75, 30, 39),
+        "stone": (119, 44, 52),
+        "gold": (239, 190, 94),
+        "light": (255, 234, 211),
+        "dark": (229, 174, 148),
+    },
+    {
+        "name": "Emerald Lotus",
+        "wood": (32, 65, 54),
+        "stone": (45, 101, 76),
+        "gold": (223, 190, 105),
+        "light": (240, 237, 195),
+        "dark": (177, 204, 151),
+    },
+    {
+        "name": "Moonstone Blue",
+        "wood": (34, 54, 78),
+        "stone": (51, 82, 111),
+        "gold": (224, 190, 119),
+        "light": (231, 240, 231),
+        "dark": (163, 195, 198),
+    },
+)
 
 
 class Renderer:
     def __init__(self, screen: pygame.Surface) -> None:
         self.screen = screen
-        self.title_font = pygame.font.Font(None, 42)
-        self.cover_title_font = pygame.font.Font(None, 82)
-        self.cover_subtitle_font = pygame.font.Font(None, 32)
-        self.versus_font = pygame.font.Font(None, 68)
-        self.versus_font.set_bold(True)
-        self.congratulations_font = pygame.font.Font(None, 52)
-        self.body_font = pygame.font.Font(None, 25)
-        self.small_font = pygame.font.Font(None, 21)
+        self._set_fonts()
         self.backgrounds = {
             "start": self._load_soft_background(
                 BACKGROUND_ASSET_DIR / "start-angkor.png", (255, 248, 226, 92)
@@ -77,8 +104,19 @@ class Renderer:
         self.restart_rect = pygame.Rect(WINDOW_WIDTH - 124, 19, 54, 54)
         self.close_rect = pygame.Rect(WINDOW_WIDTH - 58, 19, 54, 54)
         self.home_rect = pygame.Rect(WINDOW_WIDTH - 190, WINDOW_HEIGHT - 66, 170, 46)
-        self.start_button_rect = pygame.Rect(0, 0, 300, 76)
-        self.start_button_rect.center = (WINDOW_WIDTH // 2, 566)
+        self.forfeit_rect = pygame.Rect(BOARD_LEFT, WINDOW_HEIGHT - 76, 140, 44)
+        self.start_button_rect = pygame.Rect(0, 0, 300, 60)
+        self.start_button_rect.center = (WINDOW_WIDTH // 2, 630)
+        self.play_mode = "two-player"
+        self.human_player = "cow"
+        self.ai_strength = "Easy"
+        self.play_two_player_rect = pygame.Rect(0, 0, 220, 38)
+        self.play_ai_rect = pygame.Rect(0, 0, 220, 38)
+        self.play_as_tiger_rect = pygame.Rect(0, 0, 220, 38)
+        self.play_as_cow_rect = pygame.Rect(0, 0, 220, 38)
+        self.ai_strength_rects = {
+            name: pygame.Rect(0, 0, 88, 32) for name in AI_DIFFICULTIES
+        }
         self.name_field_rects = {
             "tiger": pygame.Rect(0, 0, 270, 42),
             "cow": pygame.Rect(0, 0, 270, 42),
@@ -88,10 +126,11 @@ class Renderer:
         for player, offset in (("tiger", -250), ("cow", 250)):
             self.name_field_rects[player].center = (
                 panel.centerx + offset,
-                panel.top + 370,
+                panel.top + 300,
             )
         self.player_name_inputs = {"tiger": "", "cow": ""}
         self.active_name_field: str | None = "tiger"
+        self._set_start_screen_layout()
         self.music_rect = pygame.Rect(WINDOW_WIDTH - 364, 24, 150, 40)
         self.music_label = "Choose song"
         self.music_toggle_rect = pygame.Rect(WINDOW_WIDTH - 196, 24, 68, 40)
@@ -100,7 +139,9 @@ class Renderer:
         self.sound_settings_open = False
         self.sound_volume = 0.7
         self.sound_muted = False
-        self.player_sound_labels = {"tiger": "Generated", "cow": "Generated"}
+        self.player_sound_labels = {"tiger": "Beep beep", "cow": "Beep beep"}
+        self.ai_player: str | None = None
+        self.board_theme_index = 0
         self.settings_panel_rect = pygame.Rect(0, 0, 500, 430)
         self.settings_panel_rect.center = self.screen.get_rect().center
         panel_left = self.settings_panel_rect.left
@@ -110,12 +151,50 @@ class Renderer:
         self.settings_volume_down_rect = pygame.Rect(panel_left + 120, panel_top + 218, 70, 46)
         self.settings_volume_up_rect = pygame.Rect(panel_left + 310, panel_top + 218, 70, 46)
         self.settings_mute_rect = pygame.Rect(panel_left + 120, panel_top + 288, 260, 46)
-        self.settings_close_rect = pygame.Rect(panel_left + 170, panel_top + 360, 160, 42)
+        self.settings_reset_sounds_rect = pygame.Rect(panel_left + 30, panel_top + 360, 210, 42)
+        self.settings_close_rect = pygame.Rect(panel_left + 260, panel_top + 360, 210, 42)
         self.board_rect = pygame.Rect(BOARD_LEFT, BOARD_TOP, BOARD_PIXELS, BOARD_PIXELS)
         self.camera_rects = {
             "tiger": pygame.Rect(24, 246, 220, 165),
             "cow": pygame.Rect(WINDOW_WIDTH - 244, 246, 220, 165),
         }
+
+    def _set_fonts(self) -> None:
+        def make_font(size: int) -> pygame.font.Font:
+            return pygame.font.Font(None, size)
+
+        self.title_font = make_font(42)
+        self.cover_title_font = make_font(82)
+        self.cover_subtitle_font = make_font(28)
+        self.versus_font = make_font(68)
+        self.versus_font.set_bold(True)
+        self.congratulations_font = make_font(52)
+        self.body_font = make_font(25)
+        self.small_font = make_font(21)
+        self.instruction_font = make_font(18)
+
+    def _set_start_screen_layout(self) -> None:
+        center_x = WINDOW_WIDTH // 2
+        self.play_two_player_rect.center = (center_x - 120, 473)
+        self.play_ai_rect.center = (center_x + 120, 473)
+        self.play_as_tiger_rect.center = (center_x - 120, 515)
+        self.play_as_cow_rect.center = (center_x + 120, 515)
+        self.start_button_rect.center = (center_x, 630)
+        button_width = 88
+        button_gap = 8
+        row_width = len(AI_DIFFICULTIES) * button_width + (
+            len(AI_DIFFICULTIES) - 1
+        ) * button_gap
+        for index, rect in enumerate(self.ai_strength_rects.values()):
+            rect.topleft = (
+                center_x - row_width // 2 + index * (button_width + button_gap),
+                565,
+            )
+        for player, offset in (("tiger", -250), ("cow", 250)):
+            self.name_field_rects[player].center = (center_x + offset, 380)
+
+    def _tr(self, text: str) -> str:
+        return text
 
     def _load_soft_background(
         self,
@@ -142,7 +221,10 @@ class Renderer:
     @property
     def player_names(self) -> dict[str, str]:
         return {
-            player: self.player_name_inputs[player].strip() or f"{player.title()} Player"
+            player: self.player_name_inputs[player].strip()
+            or self._tr("{player} Player").format(
+                player=self._tr(player.title())
+            )
             for player in ("tiger", "cow")
         }
 
@@ -199,17 +281,18 @@ class Renderer:
         pygame.draw.rect(
             self.screen, NAVY, self.sound_settings_rect, width=2, border_radius=10
         )
-        settings_label = self.small_font.render("Sound settings", True, NAVY)
+        settings_label = self.small_font.render(self._tr("Sound settings"), True, NAVY)
         self.screen.blit(
             settings_label,
             settings_label.get_rect(center=self.sound_settings_rect.center),
         )
         self._draw_board(state, cursor)
         self._draw_player_panels(state, camera_frames, camera_messages, camera_indices)
+        self._draw_forfeit_button(state)
         if cursor is not None:
             pygame.draw.circle(self.screen, ACCENT, cursor, 8, 2)
         if state.winner is not None:
-            self._draw_congratulations(state.winner)
+            self._draw_congratulations(state.winner, state.resigned_player)
         if self.sound_settings_open:
             self._draw_sound_settings()
 
@@ -219,45 +302,147 @@ class Renderer:
     ) -> None:
         self.screen.blit(self.backgrounds["start"], (0, 0))
         self.screen.blit(self.background_details, (0, 0))
-
         panel = pygame.Rect(0, 0, 1040, 600)
         panel.center = self.screen.get_rect().center
 
-        title = self.cover_title_font.render("TIGER vs COW", True, NAVY)
-        self.screen.blit(title, title.get_rect(center=(panel.centerx, panel.top + 93)))
-        subtitle = self.cover_subtitle_font.render(
-            "A strategy game for two players", True, MUTED
+        title = self.cover_title_font.render(self._tr("TIGER vs COW"), True, NAVY)
+        title_y = panel.top + 93
+        self.screen.blit(title, title.get_rect(center=(panel.centerx, title_y)))
+        subtitle_lines = self._wrap_text(
+            self._tr("Play with a friend or face the AI"),
+            panel.width - 80,
+            self.cover_subtitle_font,
         )
-        self.screen.blit(
-            subtitle,
-            subtitle.get_rect(center=(panel.centerx, panel.top + 150)),
+        self._draw_centered_lines(
+            subtitle_lines,
+            panel.centerx,
+            panel.top + 134,
+            self.cover_subtitle_font,
+            MUTED,
         )
 
-        character_size = (156, 156)
+        character_size = (136, 136)
         tiger = pygame.transform.smoothscale(self.images["tiger"], character_size)
         cow = pygame.transform.smoothscale(self.images["cow"], character_size)
         for player, offset, color, pale in (
             ("tiger", -250, TIGER_COLOR, TIGER_PALE),
             ("cow", 250, COW_COLOR, COW_PALE),
         ):
-            center = (panel.centerx + offset, panel.top + 258)
-            pygame.draw.circle(self.screen, pale, center, 100)
-            pygame.draw.circle(self.screen, color, center, 100, width=5)
+            center_y = panel.top + 196
+            center = (panel.centerx + offset, center_y)
+            radius = 76
+            pygame.draw.circle(self.screen, pale, center, radius)
+            pygame.draw.circle(self.screen, color, center, radius, width=5)
             portrait = tiger if player == "tiger" else cow
             self.screen.blit(portrait, portrait.get_rect(center=center))
 
+        for player, offset in (("tiger", -250), ("cow", 250)):
+            self.name_field_rects[player].center = (
+                panel.centerx + offset,
+                panel.top + 300,
+            )
         self._draw_name_fields()
         self._draw_versus_badge((panel.centerx, panel.top + 258))
 
-        instructions = self.body_font.render(
-            "Click a name box and type. Press Tab to switch between players.",
-            True,
+        instruction_lines = self._wrap_text(
+            self._tr("Choose a game mode. In AI mode, choose which animal you play."),
+            panel.width - 40,
+            self.body_font,
+        )
+        instructions_top = panel.top + 340
+        self._draw_centered_lines(
+            instruction_lines,
+            panel.centerx,
+            instructions_top,
+            self.body_font,
             MUTED,
         )
-        self.screen.blit(
-            instructions,
-            instructions.get_rect(center=(panel.centerx, panel.top + 414)),
+
+        if self.play_mode == "ai":
+            strength_label = self.small_font.render(
+                self._tr("AI Strength:"), True, NAVY
+            )
+            self.screen.blit(
+                strength_label,
+                strength_label.get_rect(
+                    midleft=(self.ai_strength_rects["Easy"].left, 550)
+                ),
+            )
+            current_strength = self.small_font.render(
+                self._tr("{name} (Depth {depth})").format(
+                    name=self._tr(self.ai_strength),
+                    depth=AI_DIFFICULTIES[self.ai_strength],
+                ),
+                True,
+                ACCENT,
+            )
+            self.screen.blit(
+                current_strength,
+                current_strength.get_rect(
+                    midright=(self.ai_strength_rects["Master"].right, 550)
+                ),
+            )
+            for name, rect in self.ai_strength_rects.items():
+                selected = self.ai_strength == name
+                pygame.draw.rect(
+                    self.screen,
+                    ACCENT if selected else (255, 248, 226),
+                    rect,
+                    border_radius=8,
+                )
+                pygame.draw.rect(
+                    self.screen, NAVY, rect, width=2, border_radius=8
+                )
+                label = self.small_font.render(
+                    self._tr(name), True, WHITE if selected else NAVY
+                )
+                self.screen.blit(label, label.get_rect(center=rect.center))
+
+        pygame.draw.rect(
+            self.screen,
+            ACCENT if self.play_mode == "two-player" else (255, 248, 226),
+            self.play_two_player_rect,
+            border_radius=10,
         )
+        pygame.draw.rect(
+            self.screen, NAVY, self.play_two_player_rect, width=2, border_radius=10
+        )
+        two_player_label = self.small_font.render(self._tr("Two players"), True, WHITE if self.play_mode == "two-player" else NAVY)
+        self.screen.blit(
+            two_player_label,
+            two_player_label.get_rect(center=self.play_two_player_rect.center),
+        )
+        pygame.draw.rect(
+            self.screen,
+            ACCENT if self.play_mode == "ai" else (255, 248, 226),
+            self.play_ai_rect,
+            border_radius=10,
+        )
+        pygame.draw.rect(self.screen, NAVY, self.play_ai_rect, width=2, border_radius=10)
+        ai_label = self.small_font.render(self._tr("Play vs AI"), True, WHITE if self.play_mode == "ai" else NAVY)
+        self.screen.blit(ai_label, ai_label.get_rect(center=self.play_ai_rect.center))
+
+        role_color = ACCENT if self.play_mode == "ai" else (225, 229, 234)
+        for player, rect in (
+            ("tiger", self.play_as_tiger_rect),
+            ("cow", self.play_as_cow_rect),
+        ):
+            selected = self.play_mode == "ai" and self.human_player == player
+            pygame.draw.rect(
+                self.screen,
+                ACCENT if selected else role_color,
+                rect,
+                border_radius=10,
+            )
+            pygame.draw.rect(self.screen, NAVY, rect, width=2, border_radius=10)
+            label = self.small_font.render(
+                self._tr("Play as {player}").format(
+                    player=self._tr(player.title())
+                ),
+                True,
+                WHITE if selected else (MUTED if self.play_mode == "two-player" else NAVY),
+            )
+            self.screen.blit(label, label.get_rect(center=rect.center))
 
         pygame.draw.rect(
             self.screen, ACCENT, self.start_button_rect, border_radius=18
@@ -265,19 +450,19 @@ class Renderer:
         pygame.draw.rect(
             self.screen, NAVY, self.start_button_rect, width=3, border_radius=18
         )
-        start_label = self.cover_subtitle_font.render("Start Game", True, WHITE)
+        start_label = self.cover_subtitle_font.render(self._tr("Start Game"), True, WHITE)
         self.screen.blit(
             start_label,
             start_label.get_rect(center=self.start_button_rect.center),
         )
         hint = self.small_font.render(
-            "Press Enter or click Start Game when both names are ready.",
+            self._tr("Camera: point at a button, then pinch and release to click."),
             True,
             MUTED,
         )
         self.screen.blit(
             hint,
-            hint.get_rect(center=(panel.centerx, panel.bottom - 24)),
+            hint.get_rect(center=(panel.centerx, panel.bottom + 20)),
         )
         if cursor is not None:
             pygame.draw.circle(self.screen, ACCENT, cursor, 23, 3)
@@ -322,7 +507,9 @@ class Renderer:
                 label = value + ("|" if self.active_name_field == player else "")
                 label_color = NAVY
             else:
-                label = f"Enter {player} player name"
+                label = self._tr("Enter {player} player name").format(
+                    player=self._tr(player.title())
+                )
                 label_color = MUTED
             label = self._fit_text(label, self.small_font, rect.width - 24)
             text = self.small_font.render(label, True, label_color)
@@ -331,7 +518,7 @@ class Renderer:
     def _draw_music_button(self) -> None:
         pygame.draw.rect(self.screen, (255, 248, 226), self.music_rect, border_radius=10)
         pygame.draw.rect(self.screen, NAVY, self.music_rect, width=2, border_radius=10)
-        label_text = self.music_label
+        label_text = self._tr(self.music_label)
         while self.small_font.size(label_text)[0] > self.music_rect.width - 12:
             label_text = label_text[:-4] + "..."
         label = self.small_font.render(label_text, True, NAVY)
@@ -345,7 +532,7 @@ class Renderer:
             self.screen, NAVY, self.music_toggle_rect, width=2, border_radius=10
         )
         label = self.small_font.render(
-            "Play" if self.music_paused else "Pause", True, NAVY
+            self._tr("Play" if self.music_paused else "Pause"), True, NAVY
         )
         self.screen.blit(label, label.get_rect(center=self.music_toggle_rect.center))
 
@@ -366,21 +553,23 @@ class Renderer:
             width=5,
             border_radius=22,
         )
-        title = self.congratulations_font.render("SOUND SETTINGS", True, NAVY)
+        title = self.congratulations_font.render(self._tr("SOUND SETTINGS"), True, NAVY)
         self.screen.blit(
             title,
             title.get_rect(center=(self.settings_panel_rect.centerx, self.settings_panel_rect.top + 54)),
         )
         self._settings_button(
             self.settings_tiger_rect,
-            f"Tiger: {self.player_sound_labels['tiger']}",
+            self._tr("Tiger: {sound}").format(sound=self.player_sound_labels["tiger"]),
         )
         self._settings_button(
             self.settings_cow_rect,
-            f"Cow: {self.player_sound_labels['cow']}",
+            self._tr("Cow: {sound}").format(sound=self.player_sound_labels["cow"]),
         )
         self._text(
-            f"Volume: {round(self.sound_volume * 100)}%",
+            self._tr("Volume: {volume}%").format(
+                volume=round(self.sound_volume * 100)
+            ),
             self.settings_panel_rect.left + 205,
             self.settings_panel_rect.top + 230,
             self.body_font,
@@ -390,11 +579,14 @@ class Renderer:
         self._settings_button(self.settings_volume_up_rect, "+")
         self._settings_button(
             self.settings_mute_rect,
-            "Unmute" if self.sound_muted else "Mute",
+            self._tr("Unmute" if self.sound_muted else "Mute"),
         )
-        self._settings_button(self.settings_close_rect, "Close")
+        self._settings_button(
+            self.settings_reset_sounds_rect, self._tr("Use default sounds")
+        )
+        self._settings_button(self.settings_close_rect, self._tr("Close"))
         help_text = self.small_font.render(
-            "Choose a WAV, OGG, or MP3 sound file", True, MUTED
+            self._tr("Choose a WAV, OGG, or MP3 sound file"), True, MUTED
         )
         self.screen.blit(
             help_text,
@@ -404,7 +596,7 @@ class Renderer:
     def _settings_button(self, rect: pygame.Rect, text: str) -> None:
         pygame.draw.rect(self.screen, (255, 248, 226), rect, border_radius=10)
         pygame.draw.rect(self.screen, NAVY, rect, width=2, border_radius=10)
-        label_text = text
+        label_text = self._tr(text)
         while self.small_font.size(label_text)[0] > rect.width - 12:
             label_text = label_text[:-4] + "..."
         label = self.small_font.render(label_text, True, NAVY)
@@ -425,7 +617,11 @@ class Renderer:
                 8,
             )
 
-    def _draw_congratulations(self, winner: str) -> None:
+    def _draw_congratulations(
+        self,
+        winner: str,
+        resigned_player: str | None = None,
+    ) -> None:
         veil = pygame.Surface(self.screen.get_size(), pygame.SRCALPHA)
         veil.fill((22, 34, 51, 155))
         self.screen.blit(veil, (0, 0))
@@ -455,18 +651,32 @@ class Renderer:
                 portrait.get_rect(center=(panel.centerx, panel.top + 91)),
             )
 
-        heading_text = "IT'S A DRAW!" if winner == "draw" else "CONGRATULATIONS!"
+        heading_text = self._tr(
+            "IT'S A DRAW!" if winner == "draw" else "CONGRATULATIONS!"
+        )
         heading = self.congratulations_font.render(heading_text, True, NAVY)
         self.screen.blit(
             heading,
             heading.get_rect(center=(panel.centerx, panel.top + 177)),
         )
-        winner_name = self.player_names.get(winner, winner.title())
-        result_text = (
-            "Neither side can move."
-            if winner == "draw"
-            else f"{winner_name} wins!"
+        winner_name = (
+            self._player_display_name(winner)
+            if winner in {"tiger", "cow"}
+            else winner.title()
         )
+        result_text = (
+            self._tr("Neither side can move.")
+            if winner == "draw"
+            else (
+                self._tr("{winner} wins - {player} forfeited.").format(
+                    winner=winner_name,
+                    player=self._player_display_name(resigned_player),
+                )
+                if resigned_player is not None
+                else self._tr("{winner} wins!").format(winner=winner_name)
+            )
+        )
+        result_text = self._fit_text(result_text, self.body_font, panel.width - 40)
         winner_color = COW_COLOR if winner == "cow" else TIGER_COLOR
         result = self.body_font.render(result_text, True, winner_color)
         self.screen.blit(
@@ -474,7 +684,7 @@ class Renderer:
             result.get_rect(center=(panel.centerx, panel.top + 225)),
         )
         prompt = self.small_font.render(
-            "Press R or click Restart to play again", True, MUTED
+            self._tr("Press R or click Restart to play again"), True, MUTED
         )
         self.screen.blit(
             prompt,
@@ -482,30 +692,55 @@ class Renderer:
         )
 
     def _draw_header(self, state: GameState) -> None:
-        title = self.title_font.render("TIGER vs COW", True, NAVY)
+        title = self.title_font.render(self._tr("TIGER vs COW"), True, NAVY)
         self.screen.blit(title, (BOARD_LEFT, 34))
-        subtitle = self.small_font.render("4 Tigers vs 12 Cows", True, MUTED)
+        subtitle = self.small_font.render(self._tr("4 Tigers vs 12 Cows"), True, MUTED)
         self.screen.blit(subtitle, (BOARD_LEFT + 2, 79))
         if state.winner == "tiger":
-            if state.cows_captured >= TIGER_WIN_CAPTURES:
-                reason = f"ate all {TIGER_WIN_CAPTURES} Cows"
+            if state.resigned_player is not None:
+                reason = self._tr("{player} forfeited").format(
+                    player=self._player_display_name(state.resigned_player)
+                )
+            elif state.cows_captured >= TIGER_WIN_CAPTURES:
+                reason = self._tr("ate all {count} Cows").format(
+                    count=TIGER_WIN_CAPTURES
+                )
             else:
-                reason = "the last Cow cannot move"
-            status = f"{self.player_names['tiger']} wins - {reason}!"
+                reason = self._tr("the last Cow cannot move")
+            status = self._tr("{player} wins - {reason}!").format(
+                player=self._player_display_name("tiger"), reason=reason
+            )
             status_color = TIGER_COLOR
         elif state.winner == "cow":
-            status = f"{self.player_names['cow']} wins - all Tigers trapped!"
+            reason = (
+                self._tr("{player} forfeited").format(
+                    player=self._player_display_name(state.resigned_player)
+                )
+                if state.resigned_player is not None
+                else self._tr("all Tigers trapped")
+            )
+            status = self._tr("{player} wins - {reason}!").format(
+                player=self._player_display_name("cow"), reason=reason
+            )
             status_color = COW_COLOR
         elif state.winner == "draw":
-            status = "Draw - neither side can move!"
+            status = self._tr("Draw - neither side can move!")
             status_color = NAVY
         elif state.current_turn is not None:
             player = state.current_turn
-            hand = "RIGHT" if player == "tiger" else "LEFT"
-            status = f"{self.player_names[player].upper()}'S TURN - USE {hand} HAND"
+            if player == self.ai_player:
+                status = self._tr("{player} AI IS THINKING...").format(
+                    player=self._tr(player.title())
+                )
+            else:
+                hand = "RIGHT" if player == "tiger" else "LEFT"
+                status = self._tr("{player}'S TURN - USE {hand} HAND").format(
+                    player=self._player_display_name(player).upper(),
+                    hand=self._tr(hand),
+                )
             status_color = COW_COLOR if player == "cow" else TIGER_COLOR
         else:
-            status = "Game over"
+            status = self._tr("Game over")
             status_color = NAVY
         status_font = (
             self.body_font
@@ -524,8 +759,74 @@ class Renderer:
         self.screen.blit(self.images["restart"], self.restart_rect)
         self.screen.blit(self.images["close"], self.close_rect)
 
+    def _player_display_name(self, player: str) -> str:
+        if player == self.ai_player:
+            return self._tr("{player} AI").format(player=self._tr(player.title()))
+        return self.player_names[player]
+
     def _draw_board(self, state: GameState, cursor: tuple[int, int] | None) -> None:
-        pygame.draw.rect(self.screen, NAVY, self.board_rect, border_radius=13)
+        theme = BOARD_THEMES[self.board_theme_index]
+        wood = theme["wood"]
+        stone = theme["stone"]
+        gold = theme["gold"]
+        frame = self.board_rect.inflate(24, 24)
+        pygame.draw.rect(self.screen, wood, frame, border_radius=17)
+        pygame.draw.rect(
+            self.screen,
+            gold,
+            frame,
+            width=3,
+            border_radius=17,
+        )
+        inner_frame = self.board_rect.inflate(12, 12)
+        pygame.draw.rect(
+            self.screen,
+            gold,
+            inner_frame,
+            width=1,
+            border_radius=11,
+        )
+        pygame.draw.rect(self.screen, stone, self.board_rect, border_radius=9)
+        for x_direction in (-1, 1):
+            for y_direction in (-1, 1):
+                motif_center = (
+                    self.board_rect.centerx
+                    + x_direction * (self.board_rect.width // 2 + 7),
+                    self.board_rect.centery
+                    + y_direction * (self.board_rect.height // 2 + 7),
+                )
+                if self.board_theme_index == 0:
+                    pygame.draw.circle(self.screen, gold, motif_center, 4)
+                    pygame.draw.circle(self.screen, wood, motif_center, 1)
+                elif self.board_theme_index == 1:
+                    x, y = motif_center
+                    pygame.draw.polygon(
+                        self.screen,
+                        gold,
+                        ((x, y - 6), (x + 6, y), (x, y + 6), (x - 6, y)),
+                        width=2,
+                    )
+                    pygame.draw.circle(self.screen, gold, motif_center, 1)
+                elif self.board_theme_index == 2:
+                    x, y = motif_center
+                    for x_offset, y_offset in ((0, -4), (4, 0), (0, 4), (-4, 0)):
+                        pygame.draw.circle(
+                            self.screen,
+                            gold,
+                            (x + x_offset, y + y_offset),
+                            2,
+                        )
+                    pygame.draw.circle(self.screen, wood, motif_center, 1)
+                else:
+                    x, y = motif_center
+                    pygame.draw.polygon(
+                        self.screen,
+                        gold,
+                        ((x, y - 6), (x + 6, y), (x, y + 6), (x - 6, y)),
+                        width=1,
+                    )
+                    pygame.draw.line(self.screen, gold, (x - 3, y), (x + 3, y), 1)
+
         hovered = self.cell_at(cursor) if cursor is not None else None
         movable_tigers = {
             tiger_index
@@ -555,7 +856,7 @@ class Renderer:
                 CELL_SIZE - 8,
                 CELL_SIZE - 8,
             )
-            shade = CELL_LIGHT if (row + col) % 2 == 0 else CELL_DARK
+            shade = theme["light"] if (row + col) % 2 == 0 else theme["dark"]
             pygame.draw.rect(self.screen, shade, cell, border_radius=8)
             if token is not None:
                 icon = self.images[token]
@@ -611,33 +912,55 @@ class Renderer:
         camera_messages: Mapping[str, str | None],
         camera_indices: Mapping[str, int | None],
     ) -> None:
-        cow_action_instructions = (
-            ("Pinch a Cow, point at an", "adjacent empty square to move it.")
+        cow_action_instruction = (
+            self._tr(
+                "Pinch a Cow and point at an adjacent empty square to move it."
+            )
             if state.cows_placed >= TOTAL_COWS
-            else ("Pinch, point at empty square,", "then release to place Cow.")
+            else self._tr(
+                "Pinch, point at an empty square, then release to place a Cow."
+            )
+        )
+        tiger_instructions = (
+            (self._tr("Computer-controlled opponent."),)
+            if self.ai_player == "tiger"
+            else (
+                self._tr("Pinch, hold, move, then release."),
+                self._tr("Jump a Cow to eat it."),
+                self._tr("Win by eating all {count} Cows.").format(
+                    count=TIGER_WIN_CAPTURES
+                ),
+            )
+        )
+        cow_instructions = (
+            (self._tr("Computer-controlled opponent."),)
+            if self.ai_player == "cow"
+            else (
+                cow_action_instruction,
+                self._tr(
+                    "Cows placed: {placed}/{total} | eaten: {captured}."
+                ).format(
+                    placed=state.cows_placed,
+                    total=TOTAL_COWS,
+                    captured=state.cows_captured,
+                ),
+                self._tr("Cow wins by trapping Tigers."),
+            )
         )
         panels = (
             (
                 "tiger",
-                f"TIGER: {self.player_names['tiger']}",
-                (
-                    "Use RIGHT hand only.",
-                    "Pinch, hold, move, then release.",
-                    "Jump a Cow to eat it.",
-                    f"Win by eating all {TIGER_WIN_CAPTURES} Cows.",
+                self._tr("TIGER: {name}").format(
+                    name=self._player_display_name("tiger")
                 ),
+                tiger_instructions,
             ),
             (
                 "cow",
-                f"COW: {self.player_names['cow']}",
-                (
-                    "Use LEFT hand only.",
-                    *cow_action_instructions,
-                    "Mouse: click an empty square.",
-                    f"Cows placed: {state.cows_placed}/{TOTAL_COWS}.",
-                    f"Cows eaten: {state.cows_captured}.",
-                    "Cow wins by trapping Tigers.",
+                self._tr("COW: {name}").format(
+                    name=self._player_display_name("cow")
                 ),
+                cow_instructions,
             ),
         )
         for player, label, instructions in panels:
@@ -647,24 +970,31 @@ class Renderer:
             self._text(label, preview.left, 196, self.small_font, player_color)
             device_index = camera_indices[player]
             camera_name = (
-                f"Camera {device_index}"
+                self._tr("AI opponent")
+                if player == self.ai_player
+                else self._tr("Camera {index}").format(index=device_index)
                 if device_index is not None
-                else "Camera not connected"
+                else self._tr("Camera not connected")
             )
             if player == "cow":
                 tiger_index = camera_indices["tiger"]
                 if device_index is not None and device_index == tiger_index:
-                    camera_name += " | shared camera"
+                    camera_name += self._tr(" | shared camera")
             self._text(camera_name, preview.left, 224, self.small_font, MUTED)
             pygame.draw.rect(self.screen, NAVY, preview, border_radius=8)
-            camera_frame = camera_frames[player]
+            camera_frame = camera_frames[player] if player != self.ai_player else None
             if camera_frame is not None:
                 rgb = cv2.cvtColor(camera_frame, cv2.COLOR_BGR2RGB)
                 surface = pygame.surfarray.make_surface(rgb.swapaxes(0, 1))
                 surface = pygame.transform.smoothscale(surface, preview.size)
                 self.screen.blit(surface, preview)
             else:
-                self._text("No camera feed", preview.left + 42, 317, self.small_font, MUTED)
+                preview_message = (
+                    self._tr("Computer player")
+                    if player == self.ai_player
+                    else self._tr("No camera feed")
+                )
+                self._text(preview_message, preview.left + 42, 317, self.small_font, MUTED)
             pygame.draw.rect(
                 self.screen,
                 player_color,
@@ -674,7 +1004,7 @@ class Renderer:
             )
             message = camera_messages[player]
             if message:
-                short_message = "Camera unavailable; use mouse."
+                short_message = self._tr("Camera unavailable; use mouse.")
                 self._draw_wrapped_text(
                     short_message,
                     preview.left,
@@ -683,20 +1013,63 @@ class Renderer:
                     self.small_font,
                     (171, 73, 58),
                 )
-            for line_index, line in enumerate(instructions):
+            instruction_y = 478
+            for line in instructions:
+                wrapped_lines = self._wrap_text(
+                    self._tr(line),
+                    preview.width,
+                    self.instruction_font,
+                )
                 self._draw_wrapped_text(
                     line,
                     preview.left,
-                    478 + line_index * 27,
+                    instruction_y,
                     preview.width,
-                    self.small_font,
+                    self.instruction_font,
                     MUTED,
                 )
-        self._text("R: restart     Esc: quit", BOARD_LEFT, 700, self.small_font, MUTED)
+                instruction_y += len(wrapped_lines) * (
+                    self.instruction_font.get_height() + 4
+                ) + 2
+        theme_hint = (
+            self._tr("Board: {theme}  |  Index / Middle / Two / Pinky").format(
+                theme=self._tr(BOARD_THEMES[self.board_theme_index]["name"])
+            )
+        )
+        self._text(
+            self._fit_text(
+                theme_hint,
+                self.small_font,
+                self.home_rect.left - self.forfeit_rect.right - 24,
+            ),
+            self.forfeit_rect.right + 14,
+            688,
+            self.small_font,
+            MUTED,
+        )
         pygame.draw.rect(self.screen, (255, 248, 226), self.home_rect, border_radius=10)
         pygame.draw.rect(self.screen, NAVY, self.home_rect, width=2, border_radius=10)
-        home_label = self.small_font.render("Back to Start", True, NAVY)
+        home_label = self.small_font.render(self._tr("Back to Start"), True, NAVY)
         self.screen.blit(home_label, home_label.get_rect(center=self.home_rect.center))
+
+    def _draw_forfeit_button(self, state: GameState) -> None:
+        if state.current_turn is None or state.current_turn == self.ai_player:
+            return
+        pygame.draw.rect(
+            self.screen,
+            (255, 232, 226),
+            self.forfeit_rect,
+            border_radius=10,
+        )
+        pygame.draw.rect(
+            self.screen,
+            (171, 73, 58),
+            self.forfeit_rect,
+            width=2,
+            border_radius=10,
+        )
+        label = self.small_font.render(self._tr("Forfeit turn"), True, (145, 56, 45))
+        self.screen.blit(label, label.get_rect(center=self.forfeit_rect.center))
 
     def _fit_text(
         self,
@@ -704,18 +1077,95 @@ class Renderer:
         font: pygame.font.Font,
         max_width: int,
     ) -> str:
-        if font.size("...")[0] > max_width:
-            while text and font.size(text)[0] > max_width:
-                text = text[:-1]
+        if font.size(text)[0] <= max_width:
             return text
-        while text and font.size(text)[0] > max_width:
-            text = text[:-4] + "..."
-        return text
+        clusters = self._text_clusters(text)
+        original_length = len(clusters)
+        ellipsis = "..." if font.size("...")[0] <= max_width else ""
+        while clusters and font.size("".join(clusters) + "...")[0] > max_width:
+            clusters.pop()
+        if not ellipsis:
+            while clusters and font.size("".join(clusters))[0] > max_width:
+                clusters.pop()
+        truncated = len(clusters) < original_length
+        return "".join(clusters) + (ellipsis if truncated else "")
+
+    @staticmethod
+    def _text_clusters(text: str) -> list[str]:
+        clusters: list[str] = []
+        join_next = False
+        for character in text:
+            if (
+                not clusters
+                or unicodedata.category(character) in {"Mn", "Mc", "Me"}
+                or join_next
+            ):
+                if clusters:
+                    clusters[-1] += character
+                else:
+                    clusters.append(character)
+            else:
+                clusters.append(character)
+            join_next = character == "\u17d2"
+        return clusters
+
+    def _wrap_text(
+        self,
+        text: str,
+        max_width: int,
+        font: pygame.font.Font,
+    ) -> list[str]:
+        lines: list[str] = []
+        line = ""
+        for word in text.split():
+            candidate = f"{line} {word}".strip()
+            if font.size(candidate)[0] <= max_width:
+                line = candidate
+                continue
+
+            if line:
+                lines.append(line)
+                line = ""
+
+            word_line = ""
+            for cluster in self._text_clusters(word):
+                candidate_cluster = word_line + cluster
+                if word_line and font.size(candidate_cluster)[0] > max_width:
+                    lines.append(word_line)
+                    word_line = cluster
+                else:
+                    word_line = candidate_cluster
+            line = word_line
+
+        if line:
+            lines.append(line)
+        return lines
+
+    def _draw_centered_lines(
+        self,
+        lines: list[str],
+        center_x: int,
+        top: int,
+        font: pygame.font.Font,
+        color: tuple[int, int, int],
+    ) -> None:
+        for line_number, line in enumerate(lines):
+            image = font.render(line, True, color)
+            self.screen.blit(
+                image,
+                image.get_rect(
+                    center=(
+                        center_x,
+                        top + line_number * (font.get_height() + 4)
+                        + font.get_height() // 2,
+                    )
+                ),
+            )
 
     def _text(
         self, text: str, x: int, y: int, font: pygame.font.Font, color: tuple[int, int, int]
     ) -> None:
-        self.screen.blit(font.render(text, True, color), (x, y))
+        self.screen.blit(font.render(self._tr(text), True, color), (x, y))
 
     def _draw_wrapped_text(
         self,
@@ -726,14 +1176,10 @@ class Renderer:
         font: pygame.font.Font,
         color: tuple[int, int, int],
     ) -> None:
-        line = ""
-        for word in text.split():
-            candidate = f"{line} {word}".strip()
-            if line and font.size(candidate)[0] > max_width:
-                self._text(line, x, y, font, color)
-                y += font.get_linesize()
-                line = word
-            else:
-                line = candidate
-        if line:
-            self._text(line, x, y, font, color)
+        for line_number, line in enumerate(
+            self._wrap_text(text, max_width, font)
+        ):
+            self.screen.blit(
+                font.render(line, True, color),
+                (x, y + line_number * (font.get_height() + 4)),
+            )
