@@ -4,6 +4,7 @@ from src.gesture_recognizer import (
     BoardThemeGestureRecognizer,
     GestureRecognizer,
     detect_board_theme_gesture,
+    detect_grab_gesture,
 )
 
 
@@ -24,6 +25,22 @@ def _hand_landmarks(extended_fingers: set[str]) -> list[tuple[float, float]]:
 
 
 class GestureRecognizerTests(unittest.TestCase):
+    def test_closed_fist_grabs_but_open_and_partial_hands_do_not(self) -> None:
+        self.assertTrue(detect_grab_gesture(_hand_landmarks(set())))
+        self.assertFalse(
+            detect_grab_gesture(_hand_landmarks({"index", "middle", "ring", "pinky"}))
+        )
+        self.assertFalse(detect_grab_gesture(_hand_landmarks({"index", "middle"})))
+        self.assertFalse(detect_grab_gesture([(0.5, 0.5)] * 20))
+
+    def test_pinch_remains_a_grab(self) -> None:
+        self.assertTrue(
+            detect_grab_gesture(
+                _hand_landmarks({"index", "middle", "ring", "pinky"}),
+                is_pinching=True,
+            )
+        )
+
     def test_pinch_grabs_and_release_commits_at_release_position(self) -> None:
         recognizer = GestureRecognizer()
         self.assertEqual(recognizer.update((0.1, 0.1, False)), ((0.1, 0.1), False))

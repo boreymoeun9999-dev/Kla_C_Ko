@@ -695,4 +695,4 @@ def _hand_input_for_player(
         or observation.handedness.casefold() != PLAYER_HANDS[player]
     ):
         return None
-    return observation.x, observation.y, observation.is_pinching
+    return observation.x, observation.y, observation.is_grabbing

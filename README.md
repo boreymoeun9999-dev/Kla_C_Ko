@@ -50,14 +50,14 @@ game from this project folder with
   side. Choose Easy (depth 1), Medium (depth 2), Hard (depth 3), or Master
   (depth 5) for the computer's search strength. The AI makes a move
   automatically when its turn starts.
-- Click **Start Game**, pinch and release over it with the
+- Click **Start Game**, make a fist or pinch and release over it with the
   assigned hand on either camera, or press **Enter** or **Space**.
-- Cow moves first. Pinch and hold, point at an empty square, then release to
+- Cow moves first. Make a fist or pinch and hold, point at an empty square, then release to
   place one Cow using the **left hand only** on the right camera.
-- On Tiger's turn, use the **right hand only** on the left camera to pinch and
+- On Tiger's turn, use the **right hand only** on the left camera to make a fist or pinch and
   hold a Tiger, move your hand to an empty square,
   then release to move it one square up, down, left, or right.
-- To eat a Cow, keep holding the pinch while pointing beyond an adjacent Cow
+- To eat a Cow, keep holding the grab while pointing beyond an adjacent Cow
   to the empty square after it, then release.
 - With the mouse, click an empty square to place a Cow. On Tiger's turn, click
   a Tiger to select it, then click an empty neighboring square or a valid

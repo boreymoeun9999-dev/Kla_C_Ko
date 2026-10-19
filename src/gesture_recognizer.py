@@ -49,6 +49,26 @@ def detect_board_theme_gesture(
     return gesture if gesture in BOARD_THEME_GESTURES else None
 
 
+def detect_grab_gesture(
+    landmarks: Sequence[tuple[float, float]],
+    is_pinching: bool = False,
+) -> bool:
+    if is_pinching:
+        return True
+    if len(landmarks) < 21:
+        return False
+
+    wrist_x, wrist_y = landmarks[0]
+    for tip_index, pip_index in ((8, 6), (12, 10), (16, 14), (20, 18)):
+        tip_x, tip_y = landmarks[tip_index]
+        pip_x, pip_y = landmarks[pip_index]
+        tip_distance = (tip_x - wrist_x) ** 2 + (tip_y - wrist_y) ** 2
+        pip_distance = (pip_x - wrist_x) ** 2 + (pip_y - wrist_y) ** 2
+        if tip_distance >= pip_distance:
+            return False
+    return True
+
+
 class BoardThemeGestureRecognizer:
     def __init__(self, required_frames: int = 8) -> None:
         if required_frames < 1:
@@ -81,19 +101,19 @@ class BoardThemeGestureRecognizer:
 
 
 class GestureRecognizer:
-    """Treat a pinch as a grab and commit the move when the fingers release."""
+    """Treat a fist or pinch as a grab and commit when the hand opens."""
 
     def __init__(self) -> None:
-        self._pinching = False
+        self._grabbing = False
 
     def update(self, hand: HandInput) -> tuple[tuple[float, float] | None, bool]:
         if hand is None:
-            self._pinching = False
+            self._grabbing = False
             return None, False
 
-        x, y, is_pinching = hand
-        clicked = self._pinching and not is_pinching
-        self._pinching = is_pinching
+        x, y, is_grabbing = hand
+        clicked = self._grabbing and not is_grabbing
+        self._grabbing = is_grabbing
         return (x, y), clicked
 
 

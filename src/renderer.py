@@ -456,7 +456,7 @@ class Renderer:
             start_label.get_rect(center=self.start_button_rect.center),
         )
         hint = self.small_font.render(
-            self._tr("Camera: point at a button, then pinch and release to click."),
+            self._tr("Camera: point at a button, make a fist or pinch, then release."),
             True,
             MUTED,
         )
