@@ -72,6 +72,7 @@ BOARD_THEMES = (
 
 class Renderer:
     def __init__(self, screen: pygame.Surface) -> None:
+        # Set up images, fonts, and the positions of buttons and panels.
         self.screen = screen
         self._set_fonts()
         self.backgrounds = {
@@ -201,6 +202,7 @@ class Renderer:
         path: Path,
         tint: tuple[int, int, int, int],
     ) -> pygame.Surface:
+        # Soften the background and add a tint to keep text easy to read.
         image = pygame.image.load(path).convert()
         size = self.screen.get_size()
         reduced_size = (max(1, size[0] // 8), max(1, size[1] // 8))
@@ -212,6 +214,7 @@ class Renderer:
         return image
 
     def cell_at(self, position: tuple[int, int]) -> int | None:
+        # Convert a window click position to a board cell index (0..15).
         if not self.board_rect.collidepoint(position):
             return None
         col = (position[0] - BOARD_LEFT) // CELL_SIZE
@@ -241,6 +244,7 @@ class Renderer:
         event: pygame.event.Event,
         allow_key_text: bool = True,
     ) -> None:
+        # Handle typing, deletion, and switching between player name fields.
         player = self.active_name_field
         if player is None:
             return
@@ -270,6 +274,7 @@ class Renderer:
         camera_messages: Mapping[str, str | None],
         camera_indices: Mapping[str, int | None],
     ) -> None:
+        # Draw the game screen: background, board, player panels, and messages.
         self.screen.blit(self.backgrounds["game"], (0, 0))
         self.screen.blit(self.background_details, (0, 0))
         self._draw_header(state)
@@ -300,6 +305,7 @@ class Renderer:
         self,
         cursor: tuple[int, int] | None = None,
     ) -> None:
+        # Draw the start screen for player names, game mode, and AI difficulty.
         self.screen.blit(self.backgrounds["start"], (0, 0))
         self.screen.blit(self.background_details, (0, 0))
         panel = pygame.Rect(0, 0, 1040, 600)
@@ -622,6 +628,7 @@ class Renderer:
         winner: str,
         resigned_player: str | None = None,
     ) -> None:
+        # Show the result panel after a win, draw, or forfeit.
         veil = pygame.Surface(self.screen.get_size(), pygame.SRCALPHA)
         veil.fill((22, 34, 51, 155))
         self.screen.blit(veil, (0, 0))
@@ -692,6 +699,7 @@ class Renderer:
         )
 
     def _draw_header(self, state: GameState) -> None:
+        # Show whose turn it is or why the game has ended.
         title = self.title_font.render(self._tr("TIGER vs COW"), True, NAVY)
         self.screen.blit(title, (BOARD_LEFT, 34))
         subtitle = self.small_font.render(self._tr("4 Tigers vs 12 Cows"), True, MUTED)
@@ -765,6 +773,7 @@ class Renderer:
         return self.player_names[player]
 
     def _draw_board(self, state: GameState, cursor: tuple[int, int] | None) -> None:
+        # Draw the themed board and highlight selectable pieces and legal destinations.
         theme = BOARD_THEMES[self.board_theme_index]
         wood = theme["wood"]
         stone = theme["stone"]
@@ -912,6 +921,7 @@ class Renderer:
         camera_messages: Mapping[str, str | None],
         camera_indices: Mapping[str, int | None],
     ) -> None:
+        # Show the camera feeds, status messages, and instructions for each player.
         cow_action_instruction = (
             self._tr(
                 "Pinch a Cow and point at an adjacent empty square to move it."
@@ -1077,6 +1087,7 @@ class Renderer:
         font: pygame.font.Font,
         max_width: int,
     ) -> str:
+        # Fit text into a box without splitting combined Unicode characters.
         if font.size(text)[0] <= max_width:
             return text
         clusters = self._text_clusters(text)
@@ -1092,6 +1103,7 @@ class Renderer:
 
     @staticmethod
     def _text_clusters(text: str) -> list[str]:
+        # Keep combining marks and joined characters together when splitting text.
         clusters: list[str] = []
         join_next = False
         for character in text:
@@ -1115,6 +1127,7 @@ class Renderer:
         max_width: int,
         font: pygame.font.Font,
     ) -> list[str]:
+        # Wrap text to the available width, splitting long words by character cluster.
         lines: list[str] = []
         line = ""
         for word in text.split():

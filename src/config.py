@@ -3,6 +3,7 @@ from pathlib import Path
 from src.game_rules import BOARD_SIZE
 
 
+# Project paths for images, sounds, and the hand-tracking model.
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 ASSET_DIR = PROJECT_ROOT / "assets" / "png"
 BACKGROUND_ASSET_DIR = PROJECT_ROOT / "assets" / "backgrounds"
@@ -13,6 +14,8 @@ USER_SETTINGS_DIR = Path.home() / ".tiger_vs_cow"
 MUSIC_SETTINGS_PATH = USER_SETTINGS_DIR / "music.txt"
 SOUND_SETTINGS_PATH = USER_SETTINGS_DIR / "sound.json"
 HAND_MODEL_PATH = PROJECT_ROOT / "assets" / "models" / "hand_landmarker.task"
+
+# Window dimensions and board layout used for drawing and input handling.
 WINDOW_WIDTH = 1360
 WINDOW_HEIGHT = 760
 FPS = 60

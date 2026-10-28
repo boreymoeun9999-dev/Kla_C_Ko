@@ -8,6 +8,7 @@ Board = Sequence[str | None]
 STARTING_TIGER_CELLS = (0, BOARD_SIZE - 1, BOARD_CELLS - BOARD_SIZE, BOARD_CELLS - 1)
 
 
+# Find legal tiger moves: step one cell or jump over a cow to an empty cell.
 def legal_tiger_moves(board: Board, index: int) -> tuple[int, ...]:
     if index < 0 or index >= BOARD_CELLS or board[index] != "tiger":
         return ()
@@ -33,6 +34,7 @@ def legal_tiger_moves(board: Board, index: int) -> tuple[int, ...]:
     return tuple(moves)
 
 
+# Cows can move one cell to an adjacent empty position.
 def legal_cow_moves(board: Board, index: int) -> tuple[int, ...]:
     if index < 0 or index >= BOARD_CELLS or board[index] != "cow":
         return ()
@@ -48,6 +50,7 @@ def legal_cow_moves(board: Board, index: int) -> tuple[int, ...]:
     return tuple(moves)
 
 
+# Find the cow between a tiger's origin and its jump destination.
 def captured_cow_cell(board: Board, origin: int, destination: int) -> int | None:
     if origin < 0 or origin >= BOARD_CELLS or destination < 0 or destination >= BOARD_CELLS:
         return None
@@ -63,6 +66,7 @@ def captured_cow_cell(board: Board, origin: int, destination: int) -> int | None
     return middle if board[middle] == "cow" else None
 
 
+# Tigers are trapped when none of them has a legal move.
 def all_tigers_trapped(board: Board) -> bool:
     tiger_cells = [index for index, piece in enumerate(board) if piece == "tiger"]
     return bool(tiger_cells) and all(not legal_tiger_moves(board, index) for index in tiger_cells)

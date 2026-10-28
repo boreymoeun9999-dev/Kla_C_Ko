@@ -8,6 +8,7 @@ class CameraError(RuntimeError):
 
 class Camera:
     def __init__(self, device_index: int) -> None:
+        # Try available camera backends until the device opens and returns a frame.
         self.device_index = device_index
         self._capture: cv2.VideoCapture | None = None
         self._first_frame: MatLike | None = None
@@ -30,6 +31,7 @@ class Camera:
         )
 
     def read(self) -> MatLike | None:
+        # Mirror the frame so hand movement matches the player's view.
         if self._first_frame is not None:
             frame = self._first_frame
             self._first_frame = None
@@ -42,6 +44,7 @@ class Camera:
         return cv2.flip(frame, 1)
 
     def close(self) -> None:
+        # Release the webcam when it is no longer needed.
         if self._capture is not None:
             self._capture.release()
             self._capture = None
@@ -60,6 +63,7 @@ def open_player_cameras(
     player_names: tuple[str, ...],
     max_device_index: int = 5,
 ) -> tuple[dict[str, Camera | None], dict[str, str | None]]:
+    # Scan camera device indices and share one camera if only one is available.
     cameras: dict[str, Camera | None] = {player: None for player in player_names}
     messages: dict[str, str | None] = {player: None for player in player_names}
     player_index = 0

@@ -1,0 +1,236 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1200" viewBox="0 0 1920 1200" role="img" aria-labelledby="title description">
+  <title id="title">Kla C Ko - 3D User Flow</title>
+  <desc id="description">An isometric flow diagram showing game setup, player turns, controls, move validation, and end-of-game choices.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f5f8ff"/>
+      <stop offset="1" stop-color="#e7eef8"/>
+    </linearGradient>
+    <filter id="shadow" x="-25%" y="-25%" width="160%" height="180%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="7"/>
+      <feOffset dx="2" dy="10" result="offsetblur"/>
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.18"/>
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M1,1 L11,6 L1,11 Z" fill="#71839d"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M1,1 L11,6 L1,11 Z" fill="#279478"/>
+    </marker>
+    <marker id="arrowOrange" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M1,1 L11,6 L1,11 Z" fill="#d77b30"/>
+    </marker>
+    <style>
+      text { font-family: "Segoe UI", Arial, sans-serif; }
+      .title { font-size: 48px; font-weight: 750; fill: #1d2d46; }
+      .subtitle { font-size: 21px; fill: #63748d; }
+      .section { font-size: 19px; font-weight: 700; letter-spacing: 2px; fill: #7586a0; }
+      .front { stroke: #ffffff; stroke-opacity: .72; stroke-width: 2; }
+      .label { font-size: 22px; font-weight: 700; fill: #ffffff; text-anchor: middle; }
+      .detail { font-size: 16px; font-weight: 500; fill: #edf3ff; text-anchor: middle; }
+      .connector { fill: none; stroke: #8494aa; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; marker-end: url(#arrow); }
+      .connector-green { fill: none; stroke: #279478; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; marker-end: url(#arrowGreen); }
+      .connector-orange { fill: none; stroke: #d77b30; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; marker-end: url(#arrowOrange); }
+      .tag { font-size: 15px; font-weight: 700; fill: #71819a; }
+      .loop-label { font-size: 17px; font-weight: 700; fill: #279478; }
+      .end-label { font-size: 17px; font-weight: 700; fill: #d77b30; }
+    </style>
+  </defs>
+
+  <rect width="1920" height="1200" fill="url(#background)"/>
+  <circle cx="1765" cy="105" r="115" fill="#dbe6f6" opacity=".42"/>
+  <circle cx="1710" cy="1050" r="185" fill="#dbe6f6" opacity=".28"/>
+
+  <text x="88" y="82" class="title">Kla C Ko — Player User Flow</text>
+  <text x="90" y="119" class="subtitle">A 3D-style overview of how a player starts, plays, and finishes a game.</text>
+  <text x="90" y="172" class="section">01  GAME SETUP</text>
+  <text x="90" y="526" class="section">02  PLAY THE GAME</text>
+  <text x="90" y="1010" class="section">03  GAME RESULT</text>
+
+  <!-- Setup flow connectors -->
+  <path class="connector" d="M337 286 H383"/>
+  <path class="connector" d="M637 286 H683"/>
+  <path class="connector" d="M937 260 C965 260 965 178 1003 178"/>
+  <path class="connector" d="M937 310 C965 310 965 430 1003 430"/>
+  <path class="connector" d="M1303 178 C1334 178 1328 258 1353 258"/>
+  <path class="connector" d="M1303 430 C1334 430 1328 313 1353 313"/>
+  <path class="connector" d="M1607 286 H1653"/>
+  <path class="connector" d="M1754 355 V468 C1754 490 1745 500 1715 500"/>
+
+  <!-- Gameplay flow connectors -->
+  <path class="connector-green" d="M1565 585 C1510 620 1458 675 1405 708"/>
+  <path class="connector-orange" d="M1675 585 C1700 625 1708 669 1698 708"/>
+  <path class="connector-green" d="M1255 780 C1196 780 1172 780 1122 780"/>
+  <path class="connector-orange" d="M1548 780 H1502"/>
+  <path class="connector" d="M837 780 H792"/>
+  <path class="connector" d="M497 780 H452"/>
+  <path class="connector" d="M302 708 V634"/>
+  <path class="connector-green" d="M227 556 C210 500 294 482 434 482 H1477 C1518 482 1530 500 1530 520"/>
+  <path class="connector-orange" d="M302 634 V940 H315 V1002"/>
+  <path class="connector" d="M452 1045 H518"/>
+
+  <!-- Setup nodes -->
+  <g filter="url(#shadow)">
+    <polygon points="87,255 123,233 373,233 337,255" fill="#6e8ec2"/>
+    <polygon points="337,255 373,233 373,325 337,347" fill="#294775" class="front"/>
+    <polygon points="87,255 337,255 337,347 87,347" fill="#3c5f98" class="front"/>
+    <text x="212" y="293" class="label"><tspan x="212">Open the</tspan><tspan x="212" dy="27">game</tspan></text>
+    <text x="212" y="337" class="detail">Launch the app</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <polygon points="387,255 423,233 673,233 637,255" fill="#55a9a0"/>
+    <polygon points="637,255 673,233 673,325 637,347" fill="#176d69" class="front"/>
+    <polygon points="387,255 637,255 637,347 387,347" fill="#238b83" class="front"/>
+    <text x="512" y="293" class="label"><tspan x="512">Start</tspan><tspan x="512" dy="27">screen</tspan></text>
+    <text x="512" y="337" class="detail">Enter names (optional)</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <polygon points="687,255 723,233 973,233 937,255" fill="#8b78c7"/>
+    <polygon points="937,255 973,233 973,325 937,347" fill="#514288" class="front"/>
+    <polygon points="687,255 937,255 937,347 687,347" fill="#6959a9" class="front"/>
+    <text x="812" y="293" class="label"><tspan x="812">Choose game</tspan><tspan x="812" dy="27">mode</tspan></text>
+    <text x="812" y="337" class="detail">Two players or AI</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <polygon points="1007,147 1043,125 1343,125 1307,147" fill="#57a9a0"/>
+    <polygon points="1307,147 1343,125 1343,209 1307,231" fill="#176d69" class="front"/>
+    <polygon points="1007,147 1307,147 1307,231 1007,231" fill="#238b83" class="front"/>
+    <text x="1157" y="180" class="label">Two players</text>
+    <text x="1157" y="212" class="detail">Play with a friend</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <polygon points="1007,399 1043,377 1343,377 1307,399" fill="#d99a55"/>
+    <polygon points="1307,399 1343,377 1343,461 1307,483" fill="#995c27" class="front"/>
+    <polygon points="1007,399 1307,399 1307,483 1007,483" fill="#bd7836" class="front"/>
+    <text x="1157" y="432" class="label">Play vs AI</text>
+    <text x="1157" y="464" class="detail">Choose animal and difficulty</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <polygon points="1357,255 1393,233 1643,233 1607,255" fill="#3eaf91"/>
+    <polygon points="1607,255 1643,233 1643,325 1607,347" fill="#19775f" class="front"/>
+    <polygon points="1357,255 1607,255 1607,347 1357,347" fill="#279478" class="front"/>
+    <text x="1482" y="293" class="label"><tspan x="1482">Start</tspan><tspan x="1482" dy="27">game</tspan></text>
+    <text x="1482" y="337" class="detail">Confirm selections</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <polygon points="1629,255 1665,233 1915,233 1879,255" fill="#5d8ed0"/>
+    <polygon points="1879,255 1915,233 1915,325 1879,347" fill="#2d568d" class="front"/>
+    <polygon points="1629,255 1879,255 1879,347 1629,347" fill="#3f70b1" class="front"/>
+    <text x="1754" y="293" class="label"><tspan x="1754">Game board</tspan><tspan x="1754" dy="27">appears</tspan></text>
+    <text x="1754" y="337" class="detail">Cow takes the first turn</text>
+  </g>
+
+  <!-- Turn and move nodes -->
+  <g filter="url(#shadow)">
+    <polygon points="1535,520 1571,498 1821,498 1785,520" fill="#5d8ed0"/>
+    <polygon points="1785,520 1821,498 1821,590 1785,612" fill="#2d568d" class="front"/>
+    <polygon points="1535,520 1785,520 1785,612 1535,612" fill="#3f70b1" class="front"/>
+    <text x="1660" y="558" class="label"><tspan x="1660">Whose turn</tspan><tspan x="1660" dy="27">is it?</tspan></text>
+    <text x="1660" y="602" class="detail">Cow and Tiger alternate</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <polygon points="1260,730 1296,708 1552,708 1516,730" fill="#55a9a0"/>
+    <polygon points="1516,730 1552,708 1552,800 1516,822" fill="#176d69" class="front"/>
+    <polygon points="1260,730 1516,730 1516,822 1260,822" fill="#238b83" class="front"/>
+    <text x="1388" y="768" class="label"><tspan x="1388">Cow's turn</tspan><tspan x="1388" dy="27">Place / move</tspan></text>
+    <text x="1388" y="812" class="detail">Place up to 12, then move</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <polygon points="1550,730 1586,708 1842,708 1806,730" fill="#d99a55"/>
+    <polygon points="1806,730 1842,708 1842,800 1806,822" fill="#995c27" class="front"/>
+    <polygon points="1550,730 1806,730 1806,822 1550,822" fill="#bd7836" class="front"/>
+    <text x="1678" y="768" class="label"><tspan x="1678">Tiger's turn</tspan><tspan x="1678" dy="27">Move / capture</tspan></text>
+    <text x="1678" y="812" class="detail">Jump over a Cow to capture</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <polygon points="842,730 878,708 1134,708 1098,730" fill="#8b78c7"/>
+    <polygon points="1098,730 1134,708 1134,800 1098,822" fill="#514288" class="front"/>
+    <polygon points="842,730 1098,730 1098,822 842,822" fill="#6959a9" class="front"/>
+    <text x="970" y="768" class="label"><tspan x="970">Choose</tspan><tspan x="970" dy="27">control</tspan></text>
+    <text x="970" y="812" class="detail">Mouse or webcam gestures</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <polygon points="502,730 538,708 794,708 758,730" fill="#6e8ec2"/>
+    <polygon points="758,730 794,708 794,800 758,822" fill="#294775" class="front"/>
+    <polygon points="502,730 758,730 758,822 502,822" fill="#3c5f98" class="front"/>
+    <text x="630" y="768" class="label"><tspan x="630">Check move</tspan><tspan x="630" dy="27">against rules</tspan></text>
+    <text x="630" y="812" class="detail">Invalid? Try again</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <polygon points="162,730 198,708 454,708 418,730" fill="#3eaf91"/>
+    <polygon points="418,730 454,708 454,800 418,822" fill="#19775f" class="front"/>
+    <polygon points="162,730 418,730 418,822 162,822" fill="#279478" class="front"/>
+    <text x="290" y="768" class="label"><tspan x="290">Update board</tspan><tspan x="290" dy="27">and play sound</tspan></text>
+    <text x="290" y="812" class="detail">Show the accepted move</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <polygon points="152,556 188,534 444,534 408,556" fill="#8b78c7"/>
+    <polygon points="408,556 444,534 444,612 408,634" fill="#514288" class="front"/>
+    <polygon points="152,556 408,556 408,634 152,634" fill="#6959a9" class="front"/>
+    <text x="280" y="590" class="label">Game over?</text>
+    <text x="280" y="622" class="detail">Check after each move</text>
+  </g>
+
+  <!-- Result and exit choices -->
+  <g filter="url(#shadow)">
+    <polygon points="166,1024 202,1002 462,1002 426,1024" fill="#d99a55"/>
+    <polygon points="426,1024 462,1002 462,1096 426,1118" fill="#995c27" class="front"/>
+    <polygon points="166,1024 426,1024 426,1118 166,1118" fill="#bd7836" class="front"/>
+    <text x="296" y="1062" class="label"><tspan x="296">Show winner</tspan><tspan x="296" dy="27">or draw</tspan></text>
+    <text x="296" y="1106" class="detail">Victory message and music</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <polygon points="522,1024 558,1002 858,1002 822,1024" fill="#5d8ed0"/>
+    <polygon points="822,1024 858,1002 858,1096 822,1118" fill="#2d568d" class="front"/>
+    <polygon points="522,1024 822,1024 822,1118 522,1118" fill="#3f70b1" class="front"/>
+    <text x="672" y="1062" class="label"><tspan x="672">Restart / Back</tspan><tspan x="672" dy="27">to Start / Exit</tspan></text>
+    <text x="672" y="1106" class="detail">Player chooses what to do next</text>
+  </g>
+
+  <!-- Branch and outcome labels -->
+  <text x="952" y="207" class="tag">TWO-PLAYER</text>
+  <text x="952" y="405" class="tag">VS AI</text>
+  <text x="1438" y="650" class="tag">COW</text>
+  <text x="1715" y="650" class="tag">TIGER</text>
+  <text x="506" y="755" class="tag">VALID</text>
+  <text x="312" y="665" class="end-label">YES</text>
+  <text x="820" y="468" class="loop-label">NO — NEXT TURN</text>
+
+  <!-- Camera fallback note -->
+  <g>
+    <rect x="902" y="866" width="675" height="74" rx="16" fill="#ffffff" opacity=".78" stroke="#c7d3e3" stroke-width="2"/>
+    <circle cx="933" cy="903" r="10" fill="#3f70b1"/>
+    <text x="956" y="899" font-size="17" font-weight="700" fill="#43546e">Webcam available?</text>
+    <text x="956" y="923" font-size="15" fill="#63748d">Yes: track the assigned hand. No: continue with mouse controls.</text>
+  </g>
+
+  <!-- Legend -->
+  <g transform="translate(1040 1057)">
+    <text x="0" y="0" font-size="15" font-weight="700" letter-spacing="1.5" fill="#7586a0">FLOW KEY</text>
+    <path d="M0 28 H66" class="connector"/>
+    <text x="82" y="34" font-size="16" fill="#63748d">Player action / game step</text>
+    <path d="M300 28 H366" class="connector-green"/>
+    <text x="382" y="34" font-size="16" fill="#63748d">Cow action / continue</text>
+    <path d="M600 28 H666" class="connector-orange"/>
+    <text x="682" y="34" font-size="16" fill="#63748d">Tiger action / game end</text>
+  </g>
+</svg>

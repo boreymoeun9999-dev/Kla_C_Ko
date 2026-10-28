@@ -8,6 +8,9 @@ BOARD_THEME_GESTURES = {
     "two": 2,
     "pinky": 3,
 }
+
+
+# Identify gestures by extended fingers; pinching does not change the board theme.
 def detect_hand_gesture(
     landmarks: Sequence[tuple[float, float]],
     is_pinching: bool = False,
@@ -41,6 +44,7 @@ def detect_hand_gesture(
     return None
 
 
+# Return only gestures configured to select a board theme.
 def detect_board_theme_gesture(
     landmarks: Sequence[tuple[float, float]],
     is_pinching: bool = False,
@@ -49,6 +53,7 @@ def detect_board_theme_gesture(
     return gesture if gesture in BOARD_THEME_GESTURES else None
 
 
+# Treat a pinch or a fully closed hand as a grab.
 def detect_grab_gesture(
     landmarks: Sequence[tuple[float, float]],
     is_pinching: bool = False,
@@ -70,6 +75,7 @@ def detect_grab_gesture(
 
 
 class BoardThemeGestureRecognizer:
+    # Require a gesture to persist across frames to avoid accidental theme changes.
     def __init__(self, required_frames: int = 8) -> None:
         if required_frames < 1:
             raise ValueError("required_frames must be at least 1")
@@ -107,6 +113,7 @@ class GestureRecognizer:
         self._grabbing = False
 
     def update(self, hand: HandInput) -> tuple[tuple[float, float] | None, bool]:
+        # Commit the action when the hand opens after a grab.
         if hand is None:
             self._grabbing = False
             return None, False
@@ -117,6 +124,7 @@ class GestureRecognizer:
         return (x, y), clicked
 
 
+# Convert normalized hand coordinates (0..1) to pixels within a screen region.
 def map_to_board(
     position: Sequence[float],
     left: int,

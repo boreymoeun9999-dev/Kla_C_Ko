@@ -24,12 +24,12 @@ from src.hand_tracker import HandObservation, HandTracker
 from src.renderer import Renderer
 from src.sound_effects import SAMPLE_RATE, SoundEffects
 
-
 PLAYERS = ("tiger", "cow")
 PLAYER_HANDS = {"tiger": "right", "cow": "left"}
 AI_MOVE_DELAY_SECONDS = 0.45
 
 
+# These protocols describe the methods required by the helper functions below.
 class _ClickRenderer(Protocol):
     def cell_at(self, position: tuple[int, int]) -> int | None: ...
 
@@ -41,10 +41,11 @@ class _ClickSounds(Protocol):
 
 
 def main() -> None:
+    # Create the game window and initialize camera, sound, state, and gesture services.
     pygame.mixer.pre_init(frequency=SAMPLE_RATE, size=-16, channels=1)
     pygame.init()
     screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-    pygame.display.set_caption("Tiger vs Cow")
+    pygame.display.set_caption("Kla C Ko")
     clock = pygame.time.Clock()
     renderer = Renderer(screen)
     sounds = SoundEffects()
@@ -63,6 +64,7 @@ def main() -> None:
     trackers: dict[str, HandTracker | None] = {player: None for player in PLAYERS}
     trackers_by_camera: dict[int, HandTracker] = {}
     try:
+        # Reuse one tracker per camera device when players share a webcam.
         for player in PLAYERS:
             camera = cameras[player]
             if camera is None:
@@ -103,6 +105,7 @@ def main() -> None:
         if renderer.active_name_field is not None:
             pygame.key.start_text_input()
         while running:
+            # Main loop: show the start screen or process the current game turn.
             sounds.update()
             renderer.sound_volume = sounds.volume
             renderer.sound_muted = sounds.muted
@@ -190,6 +193,7 @@ def main() -> None:
             )
             frames_by_camera: dict[int, MatLike | None] = {}
             hands_by_camera = {}
+            # Read each camera and process its hand once per frame, even if shared.
             for player in PLAYERS:
                 camera = cameras[player]
                 tracker = trackers[player]
@@ -353,6 +357,7 @@ def main() -> None:
                         )
                         pygame.key.start_text_input()
 
+            # Briefly delay the AI move so the turn change is visible to the player.
             if (
                 renderer.ai_player is not None
                 and state.current_turn == renderer.ai_player
@@ -382,6 +387,7 @@ def main() -> None:
             pygame.display.flip()
             clock.tick(FPS)
     finally:
+        # Release music, cameras, and MediaPipe resources whenever the game exits.
         sounds.stop_music()
         for tracker in trackers_by_camera.values():
             tracker.close()
@@ -400,6 +406,7 @@ def _handle_click(
     renderer: _ClickRenderer,
     sounds: _ClickSounds,
 ) -> None:
+    # Handle a board click as a placement, selection, or piece move.
     if player is None or state.is_over:
         return
     cell = renderer.cell_at(position)
@@ -444,6 +451,7 @@ def _camera_clicked_start(
     start_button_rect: pygame.Rect,
     click_handler: Callable[[tuple[int, int]], bool] | None = None,
 ) -> tuple[bool, tuple[int, int] | None]:
+    # Use camera gestures to click buttons on the start screen.
     frames_by_camera: dict[int, MatLike | None] = {}
     hands_by_camera: dict[int, HandObservation | None] = {}
     cursor = None
@@ -498,6 +506,7 @@ def _camera_clicked_start(
 
 
 def _choose_music_file() -> Path | None:
+    # Open a Windows file dialog to choose a music track.
     root = Tk()
     root.withdraw()
     root.attributes("-topmost", True)
@@ -515,6 +524,7 @@ def _choose_music_file() -> Path | None:
 
 
 def _choose_player_sound(player: str) -> Path | None:
+    # Open a file dialog to choose a custom sound for a player.
     root = Tk()
     root.withdraw()
     root.attributes("-topmost", True)
@@ -536,6 +546,7 @@ def _handle_sound_settings_click(
     renderer: Renderer,
     sounds: SoundEffects,
 ) -> None:
+    # Apply a click from the sound settings panel.
     player: str | None = None
     if renderer.settings_close_rect.collidepoint(position):
         renderer.sound_settings_open = False
@@ -592,6 +603,7 @@ def _handle_start_screen_click(
     position: tuple[int, int],
     renderer: Renderer,
 ) -> bool:
+    # Store the selected game mode, human side, and AI difficulty.
     if renderer.focus_name_field(position):
         pygame.key.start_text_input()
         return False
@@ -617,6 +629,7 @@ def _is_game_control_position(
     renderer: Renderer,
     position: tuple[int, int],
 ) -> bool:
+    # Distinguish pointers over UI controls from pointers over board cells.
     controls = (
         renderer.home_rect,
         renderer.forfeit_rect,
@@ -647,6 +660,7 @@ def _handle_game_click(
     renderer: Renderer,
     sounds: SoundEffects,
 ) -> str | None:
+    # Route a click to the appropriate control or board action.
     if renderer.sound_settings_open:
         _handle_sound_settings_click(position, renderer, sounds)
     elif renderer.home_rect.collidepoint(position):
@@ -690,6 +704,7 @@ def _hand_input_for_player(
     player: str,
     observation: HandObservation | None,
 ) -> HandInput:
+    # Accept only the assigned hand: right for Tiger and left for Cow.
     if (
         observation is None
         or observation.handedness.casefold() != PLAYER_HANDS[player]

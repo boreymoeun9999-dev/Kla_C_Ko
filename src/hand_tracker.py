@@ -23,6 +23,7 @@ HAND_CONNECTIONS = (
 )
 
 
+# Hand data needed by the rest of the game.
 class HandObservation(NamedTuple):
     x: float
     y: float
@@ -33,6 +34,7 @@ class HandObservation(NamedTuple):
 
 class HandTracker:
     def __init__(self) -> None:
+        # Create a MediaPipe Hand Landmarker for continuous video tracking.
         if not HAND_MODEL_PATH.is_file():
             raise FileNotFoundError(
                 f"Hand tracking model not found: {HAND_MODEL_PATH}. "
@@ -50,6 +52,7 @@ class HandTracker:
         self._timestamp_ms = 0
 
     def process(self, mirrored_frame: MatLike) -> HandObservation | None:
+        # Convert the frame to RGB and ask MediaPipe to locate hand landmarks.
         rgb_frame = cv2.cvtColor(mirrored_frame, cv2.COLOR_BGR2RGB)
         image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
         timestamp_ms = max(time.monotonic_ns() // 1_000_000, self._timestamp_ms + 1)
@@ -58,6 +61,7 @@ class HandTracker:
         if not results.hand_landmarks or not results.handedness:
             return None
 
+        # Draw the hand skeleton and determine whether the hand is pinching or grabbing.
         landmarks = results.hand_landmarks[0]
         handedness = results.handedness[0][0].category_name
         height, width = mirrored_frame.shape[:2]
@@ -90,4 +94,5 @@ class HandTracker:
         )
 
     def close(self) -> None:
+        # Close the MediaPipe task and release its resources.
         self._landmarker.close()

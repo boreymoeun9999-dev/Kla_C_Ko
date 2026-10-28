@@ -13,6 +13,8 @@ TOTAL_COWS = 12
 TIGER_WIN_CAPTURES = TOTAL_COWS
 
 
+# While cows are still being placed, any empty cell is a legal option.
+# After all cows are placed, a cow must be able to move to an adjacent empty cell.
 def _cow_can_move(board: list[str | None], cows_placed: int) -> bool:
     if cows_placed < TOTAL_COWS:
         return any(piece is None for piece in board)
@@ -22,6 +24,7 @@ def _cow_can_move(board: list[str | None], cows_placed: int) -> bool:
     )
 
 
+# Once all cows are placed, the tigers win if no cow can move.
 def _cows_are_trapped(board: list[str | None], cows_placed: int) -> bool:
     return (
         cows_placed >= TOTAL_COWS
@@ -30,6 +33,7 @@ def _cows_are_trapped(board: list[str | None], cows_placed: int) -> bool:
     )
 
 
+# Create a new board with the four tigers in the corners.
 def _starting_board() -> list[str | None]:
     board: list[str | None] = [None] * BOARD_CELLS
     for index in STARTING_TIGER_CELLS:
@@ -39,6 +43,7 @@ def _starting_board() -> list[str | None]:
 
 @dataclass
 class GameState:
+    # Store the board, turn, selections, and current game result.
     board: list[str | None] = field(default_factory=_starting_board)
     current_turn: str | None = "cow"
     winner: str | None = None
@@ -53,6 +58,7 @@ class GameState:
         return self.winner is not None
 
     def place(self, index: int) -> bool:
+        # Validate the cell, place a cow, and switch turns or set the winner.
         if (
             self.is_over
             or self.current_turn != "cow"
@@ -78,6 +84,7 @@ class GameState:
         return True
 
     def select_cow(self, index: int) -> bool:
+        # After all 12 cows are placed, select a cow to move.
         if (
             self.is_over
             or self.current_turn != "cow"
@@ -89,6 +96,7 @@ class GameState:
         return True
 
     def move_cow(self, destination: int) -> bool:
+        # Move the selected cow and check for a win.
         origin = self.selected_cow
         if (
             self.is_over
@@ -112,6 +120,7 @@ class GameState:
         return True
 
     def select_tiger(self, index: int) -> bool:
+        # Allow selection only for a tiger that has a legal move.
         if (
             self.is_over
             or self.current_turn != "tiger"
@@ -122,6 +131,7 @@ class GameState:
         return True
 
     def move_tiger(self, destination: int) -> bool:
+        # Move the tiger; if it jumps a cow, capture that cow.
         origin = self.selected_tiger
         if (
             self.is_over
@@ -154,6 +164,7 @@ class GameState:
         return True
 
     def forfeit(self, player: str) -> bool:
+        # The player whose turn it is can forfeit and award the win to the opponent.
         if (
             self.is_over
             or player not in {"tiger", "cow"}
@@ -169,6 +180,7 @@ class GameState:
         return True
 
     def reset(self) -> None:
+        # Restore all values to their initial game state.
         self.board = _starting_board()
         self.current_turn = "cow"
         self.winner = None

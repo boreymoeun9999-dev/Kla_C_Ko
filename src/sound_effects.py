@@ -23,6 +23,7 @@ LEGACY_PLAYER_SOUND_PATHS = {
 }
 
 
+# Generate a short tone for the default move sound.
 def _make_tone(frequencies: tuple[int, ...], duration: float) -> pygame.mixer.Sound:
     samples = array("h")
     samples_per_tone = int(SAMPLE_RATE * duration / len(frequencies))
@@ -39,6 +40,7 @@ def _make_tone(frequencies: tuple[int, ...], duration: float) -> pygame.mixer.So
     return pygame.mixer.Sound(buffer=samples.tobytes())
 
 
+# Generate the default music by combining melody and bass notes.
 def _make_music() -> pygame.mixer.Sound:
     melody = (440, 523, 659, 523, 392, 494, 587, 494, 349, 440, 523, 440, 392, 494, 587, 494)
     bass = (110, 98, 87, 98)
@@ -59,6 +61,7 @@ def _make_music() -> pygame.mixer.Sound:
     return pygame.mixer.Sound(buffer=samples.tobytes())
 
 
+# Winner music loops until its time limit is reached.
 def _make_winner_music() -> pygame.mixer.Sound:
     melody = (523, 659, 784, 1047, 784, 880, 1047, 1319)
     bass = (131, 165, 196, 262)
@@ -81,6 +84,7 @@ def _make_winner_music() -> pygame.mixer.Sound:
 
 class SoundEffects:
     def __init__(self) -> None:
+        # Configure the mixer and sound channels, then load saved settings.
         mixer_settings = (SAMPLE_RATE, -16, 1)
         if pygame.mixer.get_init() != mixer_settings:
             pygame.mixer.quit()
@@ -111,6 +115,7 @@ class SoundEffects:
         self._apply_volume()
 
     def start_music(self) -> None:
+        # Play the previously selected track, or use the default music.
         saved_path = self._read_saved_music_path()
         if saved_path is not None and saved_path.is_file():
             try:
@@ -151,6 +156,7 @@ class SoundEffects:
         self._music_paused = not self._music_paused
 
     def set_music(self, path: Path, *, save: bool = True) -> None:
+        # Load a new track and optionally save its path for the next launch.
         path = path.expanduser().resolve()
         if not path.is_file():
             raise FileNotFoundError(f"Music file not found: {path}")
@@ -228,6 +234,7 @@ class SoundEffects:
             pygame.mixer.music.set_volume(volume * 0.22)
 
     def _load_sound_settings(self) -> None:
+        # Load volume and custom sound settings from JSON, if available.
         try:
             settings = json.loads(SOUND_SETTINGS_PATH.read_text(encoding="utf-8"))
         except FileNotFoundError:
@@ -265,6 +272,7 @@ class SoundEffects:
                 print(f"Could not load saved {player} sound {path}: {error}")
 
     def _save_sound_settings(self) -> None:
+        # Save the current settings for the next time the game starts.
         settings = {
             "volume": self._volume,
             "muted": self._muted,
@@ -284,12 +292,14 @@ class SoundEffects:
         self._players[player].play()
 
     def play_winner(self, winner: str) -> None:
+        # Loop the victory music and schedule it to stop automatically.
         if winner not in {"tiger", "cow"}:
             raise ValueError(f"Unknown winner: {winner}")
         self._winner_channel.play(self._winner_music, loops=-1)
         self._winner_deadline = time.monotonic() + WIN_SOUND_DURATION_SECONDS
 
     def update(self) -> None:
+        # Check each game loop to see whether it is time to stop victory music.
         if (
             self._winner_deadline is not None
             and time.monotonic() >= self._winner_deadline

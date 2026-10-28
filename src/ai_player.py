@@ -15,7 +15,7 @@ AI_DIFFICULTIES = {
     "Master": 5,
 }
 
-
+# Represent a move by its player, origin cell, and destination cell.
 @dataclass(frozen=True)
 class _Move:
     player: str
@@ -23,6 +23,7 @@ class _Move:
     destination: int
 
 
+# Generate all legal moves for the player whose turn it is.
 def _legal_moves(state: GameState, player: str) -> list[_Move]:
     if player == "cow" and state.cows_placed < TOTAL_COWS:
         return [
@@ -44,6 +45,7 @@ def _legal_moves(state: GameState, player: str) -> list[_Move]:
     return moves
 
 
+# Apply a move to a copied state using the game's regular rules.
 def _apply_move(state: GameState, move: _Move) -> bool:
     if move.player == "cow" and move.origin is None:
         return state.place(move.destination)
@@ -55,6 +57,7 @@ def _apply_move(state: GameState, move: _Move) -> bool:
     return state.select_tiger(move.origin) and state.move_tiger(move.destination)
 
 
+# Score how favorable the board is for the tigers or cows.
 def _evaluate(state: GameState, player: str) -> int:
     if state.winner is not None:
         if state.winner == "draw":
@@ -78,6 +81,7 @@ def _evaluate(state: GameState, player: str) -> int:
     return tiger_score if player == "tiger" else -tiger_score
 
 
+# Search future moves; alpha-beta pruning skips branches that cannot improve the result.
 def _search(
     state: GameState,
     player: str,
@@ -113,6 +117,7 @@ def _search(
     return int(best_score)
 
 
+# Choose the highest-scoring move within the requested search depth.
 def play_ai_turn(state: GameState, depth: int = 1) -> bool:
     player = state.current_turn
     if (
